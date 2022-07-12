@@ -18,7 +18,7 @@
 		<version.java>17</version.java>
 		<maven.version>3.0</maven.version>
 
-		<plugin.version.assembly>3.3.0</plugin.version.assembly>
+		<plugin.version.assembly>3.4.1</plugin.version.assembly>
 	</properties>
 
 	<dependencies>
