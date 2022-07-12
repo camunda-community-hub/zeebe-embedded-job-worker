@@ -1,0 +1,64 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>io.zeebe</groupId>
+	<artifactId>zeebe-exporter-demo</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<name>zeebe exporter demo</name>
+	<parent>
+		<groupId>org.camunda.community</groupId>
+		<artifactId>community-hub-release-parent</artifactId>
+		<version>1.2.2</version>
+		<relativePath />
+	</parent>
+
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<version.java>11</version.java>
+		<maven.version>3.0</maven.version>
+
+		<plugin.version.assembly>3.3.0</plugin.version.assembly>
+	</properties>
+
+	<dependencies>
+		<dependency>
+			<groupId>io.camunda</groupId>
+			<artifactId>zeebe-exporter-api</artifactId>
+			<version>8.0.2</version>
+			<scope>provided</scope>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<pluginManagement>
+			<plugins>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-assembly-plugin</artifactId>
+					<version>${plugin.version.assembly}</version>
+					<configuration>
+						<descriptorRefs>
+							<descriptorRef>jar-with-dependencies</descriptorRef>
+						</descriptorRefs>
+					</configuration>
+					<executions>
+						<execution>
+							<id>assemble-all</id>
+							<phase>package</phase>
+							<goals>
+								<goal>single</goal>
+							</goals>
+						</execution>
+					</executions>
+				</plugin>
+			</plugins>
+		</pluginManagement>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-assembly-plugin</artifactId>
+			</plugin>
+		</plugins>
+	</build>
+</project>

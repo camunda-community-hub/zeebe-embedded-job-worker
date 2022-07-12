@@ -1,0 +1,124 @@
+# While the Docker images themselves are supported for production usage,
+# this docker-compose.yaml is designed to be used by developers to run
+# an environment locally. It is not designed to be used in production.
+# We recommend to use Kubernetes in production with our Helm Charts:
+# https://docs.camunda.io/docs/self-managed/platform-deployment/kubernetes-helm/
+# For local development, we recommend using KIND instead of `docker-compose`:
+# https://docs.camunda.io/docs/self-managed/platform-deployment/kubernetes-helm/#installing-the-camunda-helm-chart-locally-using-kind
+
+# This is a full configuration with Zeebe, Operate, Tasklist, Optimize, Identity, Keycloak, and Elasticsearch
+# See docker-compose-core.yml for a lightweight configuration that does not include Optimize, Identity, and Keycloak.
+
+services:
+
+  zeebe: # https://docs.camunda.io/docs/self-managed/platform-deployment/docker/#zeebe
+    image: camunda/zeebe:${CAMUNDA_PLATFORM_VERSION:-8.0.2}
+    container_name: zeebe
+    ports:
+      - "26500:26500"
+      - "9600:9600"
+    environment: # https://docs.camunda.io/docs/self-managed/zeebe-deployment/configuration/environment-variables/
+      - ZEEBE_BROKER_EXPORTERS_ELASTICSEARCH_CLASSNAME=io.camunda.zeebe.exporter.ElasticsearchExporter
+      - ZEEBE_BROKER_EXPORTERS_ELASTICSEARCH_ARGS_URL=http://elasticsearch:9200
+      - ZEEBE_BROKER_EXPORTERS_ELASTICSEARCH_ARGS_BULK_SIZE=1
+      # allow running with low disk space
+      - ZEEBE_BROKER_DATA_DISKUSAGECOMMANDWATERMARK=0.998
+      - ZEEBE_BROKER_DATA_DISKUSAGEREPLICATIONWATERMARK=0.999
+      - "JAVA_TOOL_OPTIONS=-Xms512m -Xmx512m"
+    restart: always
+    volumes:
+      - zeebe:/usr/local/zeebe/data
+      - "./zeebe-interceptor-0.0.1-SNAPSHOT-jar-with-dependencies.jar:/tmp/zeebe-interceptor.jar:rw"
+      - "./zeebe-exporter-demo-0.0.1-SNAPSHOT-jar-with-dependencies.jar:/usr/local/zeebe/lib/zeebe-exporter-demo.jar:rw"
+      - "./zeebe.config:/usr/local/zeebe/config/application.yaml:rw"
+    networks:
+      - camunda-platform
+    depends_on:
+      - elasticsearch
+
+  operate: # https://docs.camunda.io/docs/self-managed/platform-deployment/docker/#operate
+    image: camunda/operate:${CAMUNDA_PLATFORM_VERSION:-8.0.2}
+    container_name: operate
+    ports:
+      - "8081:8080"
+    environment: # https://docs.camunda.io/docs/self-managed/operate-deployment/configuration/
+      - CAMUNDA_OPERATE_ZEEBE_GATEWAYADDRESS=zeebe:26500
+      - CAMUNDA_OPERATE_ELASTICSEARCH_URL=http://elasticsearch:9200
+      - CAMUNDA_OPERATE_ZEEBEELASTICSEARCH_URL=http://elasticsearch:9200
+      - SPRING_PROFILES_ACTIVE=ldap-auth
+      - CAMUNDA_OPERATE_LDAP_URL=ldap://localhost:10389/
+      - CAMUNDA_OPERATE_LDAP_BASEDN=dc=example,dc=com
+      - CAMUNDA_OPERATE_LDAP_MANAGERDN=uid=admin,ou=system
+      - CAMUNDA_OPERATE_LDAP_MANAGERPASSWORD=secret
+      - CAMUNDA_OPERATE_LDAP_USERSEARCHFILTER=uid={0}
+    networks:
+      - camunda-platform
+    depends_on:
+      - zeebe
+      - elasticsearch
+
+  tasklist: # https://docs.camunda.io/docs/self-managed/platform-deployment/docker/#tasklist
+    image: camunda/tasklist:${CAMUNDA_PLATFORM_VERSION:-8.0.2}
+    container_name: tasklist
+    ports:
+      - "8082:8080"
+    environment: # https://docs.camunda.io/docs/self-managed/tasklist-deployment/configuration/
+      - CAMUNDA_TASKLIST_ZEEBE_GATEWAYADDRESS=zeebe:26500
+      - CAMUNDA_TASKLIST_ELASTICSEARCH_URL=http://elasticsearch:9200
+      - CAMUNDA_TASKLIST_ZEEBEELASTICSEARCH_URL=http://elasticsearch:9200
+    networks:
+      - camunda-platform
+    depends_on:
+      - zeebe
+      - elasticsearch
+
+  optimize: # https://docs.camunda.io/docs/self-managed/platform-deployment/docker/#optimize
+    image: camunda/optimize:${CAMUNDA_OPTIMIZE_VERSION:-3.8.2}
+    container_name: optimize
+    ports:
+      - "8083:8090"
+    environment: # https://docs.camunda.io/docs/self-managed/optimize-deployment/setup/installation/#available-environment-variables
+      - OPTIMIZE_ELASTICSEARCH_HOST=elasticsearch
+      - OPTIMIZE_ELASTICSEARCH_HTTP_PORT=9200
+      - SPRING_PROFILES_ACTIVE=ccsm
+      - CAMUNDA_OPTIMIZE_ZEEBE_ENABLED=true
+      - CAMUNDA_OPTIMIZE_ENTERPRISE=false
+    restart: on-failure
+    networks:
+      - camunda-platform
+
+  elasticsearch: # https://hub.docker.com/_/elasticsearch
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTIC_VERSION:-7.17.0}
+    container_name: elasticsearch
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    environment:
+      - bootstrap.memory_lock=true
+      - discovery.type=single-node
+      # allow running with low disk space
+      - cluster.routing.allocation.disk.threshold_enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    restart: always
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:9200/_cat/health | grep -q green" ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    volumes:
+      - elastic:/usr/share/elasticsearch/data
+    networks:
+      - camunda-platform
+
+volumes:
+  zeebe:
+  elastic:
+
+networks:
+  # Note there are two bridge networks: One for Camunda Platform and one for Identity.
+  # Operate, Tasklist, and Optimize use both
+  camunda-platform:
