@@ -18,26 +18,26 @@
 		<version.java>17</version.java>
 		<maven.version>3.0</maven.version>
 
-		<plugin.version.assembly>3.3.0</plugin.version.assembly>
+		<plugin.version.assembly>3.4.1</plugin.version.assembly>
 	</properties>
 
 	<dependencies>
 		<dependency>
 			<groupId>io.camunda</groupId>
 			<artifactId>zeebe-exporter-api</artifactId>
-			<version>8.0.2</version>
+			<version>8.0.4</version>
 			<scope>provided</scope>
 		</dependency>
 		<dependency>
 			<groupId>io.camunda</groupId>
 			<artifactId>zeebe-protocol</artifactId>
-			<version>8.0.2</version>
+			<version>8.0.4</version>
 			<scope>provided</scope>
 		</dependency>
 		<dependency>
 			<groupId>io.camunda</groupId>
 			<artifactId>zeebe-client-java</artifactId>
-			<version>8.0.2</version>
+			<version>8.0.4</version>
 			<scope>provided</scope>
 		</dependency>
 	</dependencies>
