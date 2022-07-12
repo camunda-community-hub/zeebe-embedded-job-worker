@@ -1,5 +1,6 @@
 package org.camunda.community.extension.zeebe.exporter.jobworker;
 
+import java.time.Duration;
 import java.util.Set;
 
 import org.slf4j.Logger;
@@ -48,11 +49,11 @@ public class EmbeddedJobWorker implements Exporter {
           .usePlaintext()
           .gatewayAddress("camunda-zeebe-gateway:26500")
           .build();
-        log.info("Zeebe client initialized.");
+        log.debug("Zeebe client initialized.");
         Topology topology = client.newTopologyRequest()
           .send()
           .join();
-        log.debug("Exporter sees a topology with " + topology.getClusterSize() + " clusters.");
+        log.debug("Exporter sees a topology with " + topology.getClusterSize() + " cluster nodes.");
     }
 
     @Override
@@ -62,10 +63,9 @@ public class EmbeddedJobWorker implements Exporter {
 
     @Override
     public void export(io.camunda.zeebe.protocol.record.Record<?> record) {
-        log.debug(record.toJson());
         if (record.getIntent() == JobIntent.CREATED) {
           long jobKey = record.getKey();
-          client.newCompleteCommand(jobKey).send();
+          controller.scheduleCancellableTask(Duration.ofMillis(10), () -> client.newCompleteCommand(jobKey).send());
         }
         this.controller.updateLastExportedRecordPosition(record.getPosition());
     }
