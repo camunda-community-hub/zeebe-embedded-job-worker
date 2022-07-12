@@ -46,7 +46,7 @@ public class InEngineJobWorker implements Exporter {
         this.controller = controller;
         this.client = ZeebeClient.newClientBuilder()
           .usePlaintext()
-          .gatewayAddress("camunda-zeebe-gateway")
+          .gatewayAddress("camunda-zeebe-gateway:26500")
           .build();
         log.info("Zeebe client initialized.");
         Topology topology = client.newTopologyRequest()
