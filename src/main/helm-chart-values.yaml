@@ -1,0 +1,12 @@
+zeebe:
+  extraInitContainers: |
+    - name: init-exporters-job-worker
+      image: busybox:1.35
+      command: ['/bin/sh', '-c']
+      args: ['wget --no-check-certificate https://github.com/camunda-community-hub/in-engine-job-worker/releases/download/v0.0.1/zeebe-exporter-demo-0.0.1.jar -O /exporters/zeebe-job-worker-exporter.jar; ls -al']
+      volumeMounts:
+      - name: exporters
+        mountPath: /exporters/
+  env:
+    ZEEBE_BROKER_EXPORTERS_JOBWORKER_JARPATH: exporters/zeebe-job-worker-exporter.jar
+    ZEEBE_BROKER_EXPORTERS_JOBWORKER_CLASSNAME: io.camunda.community.zeebe.exporter.worker.InMemoryJobWorker
