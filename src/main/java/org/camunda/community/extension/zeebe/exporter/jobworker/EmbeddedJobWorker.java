@@ -1,4 +1,4 @@
-package io.camunda.community.zeebe.exporter.worker;
+package org.camunda.community.extension.zeebe.exporter.jobworker;
 
 import java.util.Set;
 
@@ -15,7 +15,7 @@ import io.camunda.zeebe.protocol.record.RecordType;
 import io.camunda.zeebe.protocol.record.ValueType;
 import io.camunda.zeebe.protocol.record.intent.JobIntent;
 
-public class InEngineJobWorker implements Exporter {
+public class EmbeddedJobWorker implements Exporter {
 
     private Controller controller;
     private ZeebeClient client;
