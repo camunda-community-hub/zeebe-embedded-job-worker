@@ -11,6 +11,7 @@ import io.camunda.zeebe.protocol.record.RecordType;
 import io.camunda.zeebe.protocol.record.ValueType;
 import io.camunda.zeebe.protocol.record.intent.JobIntent;
 
+// TODO rename
 public class InMemoryJobWorker implements Exporter {
     Controller controller;
     private ZeebeClient client;
@@ -50,7 +51,7 @@ public class InMemoryJobWorker implements Exporter {
 
     @Override
     public void export(io.camunda.zeebe.protocol.record.Record<?> record) {
-        System.out.println(record.toJson());
+        System.out.println(record.toJson()); // TODO: remove
         if (record.getIntent() == JobIntent.CREATED) {
           long jobKey = record.getKey();
           client.newCompleteCommand(jobKey).send();
