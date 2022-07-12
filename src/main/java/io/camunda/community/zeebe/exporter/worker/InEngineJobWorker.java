@@ -2,7 +2,11 @@ package io.camunda.community.zeebe.exporter.worker;
 
 import java.util.Set;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.camunda.zeebe.client.ZeebeClient;
+import io.camunda.zeebe.client.api.response.Topology;
 import io.camunda.zeebe.exporter.api.Exporter;
 import io.camunda.zeebe.exporter.api.context.Context;
 import io.camunda.zeebe.exporter.api.context.Context.RecordFilter;
@@ -11,13 +15,15 @@ import io.camunda.zeebe.protocol.record.RecordType;
 import io.camunda.zeebe.protocol.record.ValueType;
 import io.camunda.zeebe.protocol.record.intent.JobIntent;
 
-// TODO rename
-public class InMemoryJobWorker implements Exporter {
-    Controller controller;
+public class InEngineJobWorker implements Exporter {
+
+    private Controller controller;
     private ZeebeClient client;
+    private Logger log = LoggerFactory.getLogger(getClass().getPackageName());
 
     @Override
     public void configure(final Context context) throws Exception {
+      log = context.getLogger();
       context.setFilter(
           new RecordFilter() {
             private static final Set<ValueType> ACCEPTED_VALUE_TYPES =
@@ -42,6 +48,11 @@ public class InMemoryJobWorker implements Exporter {
           .usePlaintext()
           .gatewayAddress("camunda-zeebe-gateway")
           .build();
+        log.info("Zeebe client initialized.");
+        Topology topology = client.newTopologyRequest()
+          .send()
+          .join();
+        log.debug("Exporter sees a topology with " + topology.getClusterSize() + " clusters.");
     }
 
     @Override
@@ -51,7 +62,7 @@ public class InMemoryJobWorker implements Exporter {
 
     @Override
     public void export(io.camunda.zeebe.protocol.record.Record<?> record) {
-        System.out.println(record.toJson()); // TODO: remove
+        log.debug(record.toJson());
         if (record.getIntent() == JobIntent.CREATED) {
           long jobKey = record.getKey();
           client.newCompleteCommand(jobKey).send();
