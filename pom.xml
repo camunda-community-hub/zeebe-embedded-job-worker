@@ -15,60 +15,27 @@
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<version.java>17</version.java>
 		<maven.version>3.0</maven.version>
-
-		<plugin.version.assembly>3.4.1</plugin.version.assembly>
+		<zeebe.version>8.0.4</zeebe.version>
 	</properties>
 
 	<dependencies>
 		<dependency>
 			<groupId>io.camunda</groupId>
 			<artifactId>zeebe-exporter-api</artifactId>
-			<version>8.0.4</version>
+			<version>${zeebe.version}</version>
 			<scope>provided</scope>
 		</dependency>
 		<dependency>
 			<groupId>io.camunda</groupId>
 			<artifactId>zeebe-protocol</artifactId>
-			<version>8.0.4</version>
+			<version>${zeebe.version}</version>
 			<scope>provided</scope>
 		</dependency>
 		<dependency>
 			<groupId>io.camunda</groupId>
 			<artifactId>zeebe-client-java</artifactId>
-			<version>8.0.4</version>
+			<version>${zeebe.version}</version>
 			<scope>provided</scope>
 		</dependency>
 	</dependencies>
-
-	<build>
-		<pluginManagement>
-			<plugins>
-				<plugin>
-					<groupId>org.apache.maven.plugins</groupId>
-					<artifactId>maven-assembly-plugin</artifactId>
-					<version>${plugin.version.assembly}</version>
-					<configuration>
-						<descriptorRefs>
-							<descriptorRef>jar-with-dependencies</descriptorRef>
-						</descriptorRefs>
-					</configuration>
-					<executions>
-						<execution>
-							<id>assemble-all</id>
-							<phase>package</phase>
-							<goals>
-								<goal>single</goal>
-							</goals>
-						</execution>
-					</executions>
-				</plugin>
-			</plugins>
-		</pluginManagement>
-		<plugins>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-assembly-plugin</artifactId>
-			</plugin>
-		</plugins>
-	</build>
 </project>
