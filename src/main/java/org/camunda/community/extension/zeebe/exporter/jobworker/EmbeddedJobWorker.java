@@ -1,10 +1,8 @@
 package org.camunda.community.extension.zeebe.exporter.jobworker;
 
-import java.time.Duration;
 import java.util.Set;
 
 import io.camunda.zeebe.client.ZeebeClient;
-import io.camunda.zeebe.client.api.command.CompleteJobCommandStep1;
 import io.camunda.zeebe.exporter.api.Exporter;
 import io.camunda.zeebe.exporter.api.context.Context;
 import io.camunda.zeebe.exporter.api.context.Context.RecordFilter;
@@ -54,9 +52,7 @@ public class EmbeddedJobWorker implements Exporter {
     @Override
     public void export(io.camunda.zeebe.protocol.record.Record<?> record) {
         if (record.getIntent() == JobIntent.CREATED) {
-          long jobKey = record.getKey();
-          CompleteJobCommandStep1 complete = client.newCompleteCommand(jobKey);
-          controller.scheduleCancellableTask(Duration.ofMillis(10), () -> complete.send());
+          client.newCompleteCommand(record.getKey()).send();
         }
         this.controller.updateLastExportedRecordPosition(record.getPosition());
     }
