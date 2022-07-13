@@ -1,14 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>org.camunda.community.extension.zeebe.exporter.jobworker</groupId>
   <artifactId>zeebe-embedded-job-worker</artifactId>
-  <version>0.0.7</version>
+  <version>0.0.8-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <name>Zeebe Embedded Job Worker</name>
@@ -64,7 +62,7 @@
         <version>3.1.0</version>
         <configuration>
           <rules>
-            <dependencyConvergence/>
+            <dependencyConvergence />
           </rules>
         </configuration>
         <executions>
