@@ -1,41 +1,41 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-	<modelVersion>4.0.0</modelVersion>
-	<groupId>org.camunda.community.extension.zeebe.exporter.jobworker</groupId>
-	<artifactId>zeebe-embedded-job-worker</artifactId>
-	<version>0.0.7-SNAPSHOT</version>
-	<name>Zeebe Embedded Job Worker</name>
-	<parent>
-		<groupId>org.camunda.community</groupId>
-		<artifactId>community-hub-release-parent</artifactId>
-		<version>1.2.2</version>
-		<relativePath />
-	</parent>
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>org.camunda.community.extension.zeebe.exporter.jobworker</groupId>
+  <artifactId>zeebe-embedded-job-worker</artifactId>
+  <version>0.0.7-SNAPSHOT</version>
+  <name>Zeebe Embedded Job Worker</name>
+  <parent>
+    <groupId>org.camunda.community</groupId>
+    <artifactId>community-hub-release-parent</artifactId>
+    <version>1.2.2</version>
+    <relativePath />
+  </parent>
 
-	<properties>
-		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<version.java>17</version.java>
-		<maven.version>3.0</maven.version>
-		<zeebe.version>8.0.4</zeebe.version>
-	</properties>
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <version.java>17</version.java>
+    <maven.version>3.0</maven.version>
+    <zeebe.version>8.0.4</zeebe.version>
+  </properties>
 
-	<dependencies>
-		<dependency>
-			<groupId>io.camunda</groupId>
-			<artifactId>zeebe-exporter-api</artifactId>
-			<version>${zeebe.version}</version>
-			<scope>provided</scope>
-		</dependency>
-		<dependency>
-			<groupId>io.camunda</groupId>
-			<artifactId>zeebe-protocol</artifactId>
-			<version>${zeebe.version}</version>
-			<scope>provided</scope>
-		</dependency>
-		<dependency>
-			<groupId>io.camunda</groupId>
-			<artifactId>zeebe-client-java</artifactId>
-			<version>${zeebe.version}</version>
-			<scope>provided</scope>
-		</dependency>
-	</dependencies>
+  <dependencies>
+    <dependency>
+      <groupId>io.camunda</groupId>
+      <artifactId>zeebe-exporter-api</artifactId>
+      <version>${zeebe.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.camunda</groupId>
+      <artifactId>zeebe-protocol</artifactId>
+      <version>${zeebe.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.camunda</groupId>
+      <artifactId>zeebe-client-java</artifactId>
+      <version>${zeebe.version}</version>
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
 </project>
