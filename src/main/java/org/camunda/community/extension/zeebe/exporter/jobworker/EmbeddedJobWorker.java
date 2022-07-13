@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.camunda.zeebe.client.ZeebeClient;
+import io.camunda.zeebe.client.api.command.CompleteJobCommandStep1;
 import io.camunda.zeebe.client.api.response.Topology;
 import io.camunda.zeebe.exporter.api.Exporter;
 import io.camunda.zeebe.exporter.api.context.Context;
@@ -20,11 +21,9 @@ public class EmbeddedJobWorker implements Exporter {
 
     private Controller controller;
     private ZeebeClient client;
-    private Logger log = LoggerFactory.getLogger(getClass().getPackageName());
 
     @Override
     public void configure(final Context context) throws Exception {
-      log = context.getLogger();
       context.setFilter(
           new RecordFilter() {
             private static final Set<ValueType> ACCEPTED_VALUE_TYPES =
@@ -49,11 +48,6 @@ public class EmbeddedJobWorker implements Exporter {
           .usePlaintext()
           .gatewayAddress("camunda-zeebe-gateway:26500")
           .build();
-        log.debug("Zeebe client initialized.");
-        Topology topology = client.newTopologyRequest()
-          .send()
-          .join();
-        log.debug("Exporter sees a topology with " + topology.getClusterSize() + " cluster nodes.");
     }
 
     @Override
@@ -65,7 +59,8 @@ public class EmbeddedJobWorker implements Exporter {
     public void export(io.camunda.zeebe.protocol.record.Record<?> record) {
         if (record.getIntent() == JobIntent.CREATED) {
           long jobKey = record.getKey();
-          controller.scheduleCancellableTask(Duration.ofMillis(10), () -> client.newCompleteCommand(jobKey).send());
+          CompleteJobCommandStep1 complete = client.newCompleteCommand(jobKey);
+          controller.scheduleCancellableTask(Duration.ofMillis(10), () -> complete.send());
         }
         this.controller.updateLastExportedRecordPosition(record.getPosition());
     }

@@ -3,12 +3,12 @@ zeebe:
     - name: init-exporter-job-worker
       image: busybox:1.35
       command: ['/bin/sh', '-c']
-      args: ['wget --no-check-certificate https://github.com/camunda-community-hub/in-engine-job-worker/releases/download/v0.0.4/zeebe-embedded-job-worker-0.0.4.jar -O /exporters/zeebe-embedded-job-worker-0.0.4.jar; ls -al exporters']
+      args: ['wget --no-check-certificate https://github.com/camunda-community-hub/in-engine-job-worker/releases/download/v0.0.5/zeebe-embedded-job-worker-0.0.5.jar -O /exporters/zeebe-embedded-job-worker-0.0.5.jar; ls -al exporters']
       volumeMounts:
       - name: exporters
         mountPath: /exporters/
   env:
     - name: ZEEBE_BROKER_EXPORTERS_JOBWORKER_JARPATH
-      value: "exporters/zeebe-embedded-job-worker-0.0.4.jar"
+      value: "exporters/zeebe-embedded-job-worker-0.0.5.jar"
     - name: ZEEBE_BROKER_EXPORTERS_JOBWORKER_CLASSNAME
       value: org.camunda.community.extension.zeebe.exporter.jobworker.EmbeddedJobWorker

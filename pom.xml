@@ -4,7 +4,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.camunda.community.extension.zeebe.exporter.jobworker</groupId>
 	<artifactId>zeebe-embedded-job-worker</artifactId>
-	<version>0.0.4-SNAPSHOT</version>
+	<version>0.0.5-SNAPSHOT</version>
 	<name>Zeebe Embedded Job Worker</name>
 	<parent>
 		<groupId>org.camunda.community</groupId>
