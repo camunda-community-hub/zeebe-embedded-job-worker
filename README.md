@@ -6,7 +6,7 @@
 
 Prototype to hook in code as [Exporter](https://docs.camunda.io/docs/self-managed/concepts/exporters/) that can then directly execute Jobs whenever they are created, directly within the JVM and process of the Zeebe broker.
 
-This was used in a proof of concept (POC) to match super low latencies/cyce times for processes - as this skips the Job Acquisition via the Zeebe Gatway which currently saves a relevant amount of time. 
+This was used in a proof of concept (POC) to match super low latencies/cycle times for processes - as this skips the Job Acquisition via the Zeebe Gatway, which currently saves a relevant amount of time. 
 
 However, this bears **the risk**, that whatever you do in your JobHandler code can severely impact the stability of the broker.
 
