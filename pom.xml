@@ -28,7 +28,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <version.java>17</version.java>
     <maven.version>3.0</maven.version>
-    <zeebe.version>8.0.6</zeebe.version>
+    <zeebe.version>8.1.4</zeebe.version>
   </properties>
 
   <dependencies>
