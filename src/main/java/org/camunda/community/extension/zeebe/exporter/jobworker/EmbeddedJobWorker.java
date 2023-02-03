@@ -11,6 +11,7 @@ import io.camunda.zeebe.protocol.record.ValueType;
 import io.camunda.zeebe.protocol.record.intent.JobIntent;
 import io.camunda.zeebe.protocol.record.value.JobRecordValue;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
 
@@ -69,7 +70,8 @@ public class EmbeddedJobWorker implements Exporter {
         .send();
     
       }*/
-      client.newCompleteCommand(record.getKey()).send();
+      CompleteJobCommandStep1 completeCommand = client.newCompleteCommand(record.getKey());
+      controller.scheduleCancellableTask(Duration.ofMillis(550), () -> completeCommand.send());
     }
     this.controller.updateLastExportedRecordPosition(record.getPosition());
   }
