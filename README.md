@@ -12,6 +12,9 @@ However, this bears **the risk**, that whatever you do in your JobHandler code c
 
 We are currently also discussing how to address the root problem in low-latency scenarios in a more stable way.
 
+# Installation in k8s
+See [helm-chart-values.yaml](helm-chart-values.yaml)
+
 # Getting Process Variables through an Input Mapping
 
 A input mapping can be used to get process variables
