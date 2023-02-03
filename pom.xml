@@ -4,7 +4,7 @@
 
   <groupId>org.camunda.community.extension.zeebe.exporter.jobworker</groupId>
   <artifactId>zeebe-embedded-job-worker</artifactId>
-  <version>0.0.8-SNAPSHOT</version>
+  <version>v0.0.9</version>
   <packaging>jar</packaging>
 
   <name>Zeebe Embedded Job Worker</name>
