@@ -1,6 +1,7 @@
 package org.camunda.community.extension.zeebe.exporter.jobworker;
 
 import io.camunda.zeebe.client.ZeebeClient;
+import io.camunda.zeebe.client.api.command.CompleteJobCommandStep1;
 import io.camunda.zeebe.exporter.api.Exporter;
 import io.camunda.zeebe.exporter.api.context.Context;
 import io.camunda.zeebe.exporter.api.context.Context.RecordFilter;
@@ -8,6 +9,9 @@ import io.camunda.zeebe.exporter.api.context.Controller;
 import io.camunda.zeebe.protocol.record.RecordType;
 import io.camunda.zeebe.protocol.record.ValueType;
 import io.camunda.zeebe.protocol.record.intent.JobIntent;
+import io.camunda.zeebe.protocol.record.value.JobRecordValue;
+
+import java.util.Map;
 import java.util.Set;
 
 public class EmbeddedJobWorker implements Exporter {
@@ -51,6 +55,20 @@ public class EmbeddedJobWorker implements Exporter {
   @Override
   public void export(io.camunda.zeebe.protocol.record.Record<?> record) {
     if (record.getIntent() == JobIntent.CREATED) {
+      /*
+      // FIXME: JobRecordValue does not contain variables for newly created jobs; use variable event instead
+      if (record.getValueType() == ValueType.JOB) {
+        JobRecordValue value = (JobRecordValue) record.getValue();
+        // get the input variables
+        Map<String,Object> processInputVars = value.getVariables();
+        //compute output message
+        Map<String,Object> processOutputVars = value.getVariables();
+        //complete job with variables
+        client.newCompleteCommand(record.getKey())
+        .variables(processOutputVars)
+        .send();
+    
+      }*/
       client.newCompleteCommand(record.getKey()).send();
     }
     this.controller.updateLastExportedRecordPosition(record.getPosition());
