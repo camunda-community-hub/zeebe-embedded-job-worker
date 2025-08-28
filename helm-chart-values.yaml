@@ -1,12 +1,21 @@
 zeebe:
-  extraInitContainers:
+  initContainers:
     - name: init-exporter-job-worker
-      image: busybox:1.35
+      image: curlimages/curl:latest
       command: ['/bin/sh', '-c']
-      args: ['wget --no-check-certificate https://camunda.jfrog.io/artifactory/camunda-bpm-community-extensions/org/camunda/community/extension/zeebe/exporter/jobworker/zeebe-embedded-job-worker/0.0.10/zeebe-embedded-job-worker-0.0.10.jar -O /exporters/zeebe-embedded-job-worker-0.0.10.jar; ls -al exporters']
+      args: ['curl -L https://camunda.jfrog.io/artifactory/camunda-bpm-community-extensions/org/camunda/community/extension/zeebe/exporter/jobworker/zeebe-embedded-job-worker/0.0.10/zeebe-embedded-job-worker-0.0.10.jar -o /exporters/zeebe-embedded-job-worker-0.0.10.jar; ls -al /exporters']
+      securityContext:
+        runAsUser: 1001
+        runAsNonRoot: true
       volumeMounts:
       - name: exporters
         mountPath: /exporters/
+  extraVolumes:
+    - name: exporters-writable
+      emptyDir: {}
+  extraVolumeMounts:
+    - name: exporters-writable
+      mountPath: /usr/local/zeebe/exporters/
   env:
     - name: ZEEBE_BROKER_EXPORTERS_JOBWORKER_JARPATH
       value: "exporters/zeebe-embedded-job-worker-0.0.10.jar"
