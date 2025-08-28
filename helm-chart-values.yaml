@@ -2,8 +2,8 @@ zeebe:
   initContainers:
     - name: init-exporter-job-worker
       image: curlimages/curl:latest
-      command: ['/bin/sh', '-c']
-      args: ['curl -L https://camunda.jfrog.io/artifactory/camunda-bpm-community-extensions/org/camunda/community/extension/zeebe/exporter/jobworker/zeebe-embedded-job-worker/0.0.10/zeebe-embedded-job-worker-0.0.10.jar -o /exporters/zeebe-embedded-job-worker-0.0.10.jar; ls -al /exporters']
+      command: ["/bin/sh", "-c"]
+      args: ["curl -L https://camunda.jfrog.io/artifactory/camunda-bpm-community-extensions/org/camunda/community/extension/zeebe/exporter/jobworker/zeebe-embedded-job-worker/0.0.10/zeebe-embedded-job-worker-0.0.10.jar -o /exporters/zeebe-embedded-job-worker-0.0.10.jar; ls -al /exporters"]
       securityContext:
         runAsUser: 1001
         runAsNonRoot: true
