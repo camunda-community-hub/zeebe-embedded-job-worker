@@ -73,13 +73,14 @@ class EmbeddedJobWorkerProcessIT {
                   .newCreateInstanceCommand()
                   .bpmnProcessId(PROCESS_ID)
                   .latestVersion()
-                  .variables(Map.of("inputValue", "hello-worker"))
+                  .variables(Map.of("inputValue", "hello"))
                   .withResult()
                   .send()
                   .join();
 
           assertNotNull(result);
-          assertTrue(result.getVariables().contains("\"inputValue\":\"hello-worker\""));
+          assertTrue(result.getVariables().contains("\"inputValue\":\"hello\""));
+          assertTrue(result.getVariables().contains("\"greeting\":\"hello world!\""));
           assertTrue(result.getVariables().contains("\"jobWorkerResult\":true"));
         } catch (ClientStatusException e) {
           final String message = e.getMessage();
