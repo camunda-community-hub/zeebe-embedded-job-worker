@@ -29,6 +29,7 @@
     <version.java>17</version.java>
     <maven.version>3.0</maven.version>
     <zeebe.version>8.9.0</zeebe.version>
+    <camunda.client.version>8.8.24</camunda.client.version>
     <junit.version>5.10.2</junit.version>
     <testcontainers.version>1.19.8</testcontainers.version>
   </properties>
@@ -48,8 +49,8 @@
     </dependency>
     <dependency>
       <groupId>io.camunda</groupId>
-      <artifactId>zeebe-client-java</artifactId>
-      <version>${zeebe.version}</version>
+      <artifactId>camunda-client-java</artifactId>
+      <version>${camunda.client.version}</version>
       <scope>provided</scope>
     </dependency>
     <dependency>

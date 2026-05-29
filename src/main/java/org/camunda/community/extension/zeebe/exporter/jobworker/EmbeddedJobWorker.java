@@ -1,7 +1,7 @@
 package org.camunda.community.extension.zeebe.exporter.jobworker;
 
-import io.camunda.zeebe.client.ZeebeClient;
-import io.camunda.zeebe.client.api.command.CompleteJobCommandStep1;
+import io.camunda.client.CamundaClient;
+import io.camunda.client.api.command.CompleteJobCommandStep1;
 import io.camunda.zeebe.exporter.api.Exporter;
 import io.camunda.zeebe.exporter.api.context.Context;
 import io.camunda.zeebe.exporter.api.context.Context.RecordFilter;
@@ -9,13 +9,14 @@ import io.camunda.zeebe.exporter.api.context.Controller;
 import io.camunda.zeebe.protocol.record.RecordType;
 import io.camunda.zeebe.protocol.record.ValueType;
 import io.camunda.zeebe.protocol.record.intent.JobIntent;
+import java.net.URI;
 import java.time.Duration;
 import java.util.Set;
 
 public class EmbeddedJobWorker implements Exporter {
 
   private Controller controller;
-  private ZeebeClient client;
+  private CamundaClient client;
 
   @Override
   public void configure(final Context context) throws Exception {
@@ -39,9 +40,8 @@ public class EmbeddedJobWorker implements Exporter {
   public void open(Controller controller) {
     this.controller = controller;
     this.client =
-        ZeebeClient.newClientBuilder()
-            .usePlaintext()
-            .gatewayAddress("camunda-zeebe-gateway:26500")
+        CamundaClient.newClientBuilder()
+            .grpcAddress(URI.create("http://camunda-zeebe-gateway:26500"))
             .build();
   }
 
