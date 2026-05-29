@@ -8,8 +8,10 @@ import io.camunda.zeebe.exporter.api.context.Controller;
 import io.camunda.zeebe.protocol.record.RecordType;
 import io.camunda.zeebe.protocol.record.ValueType;
 import io.camunda.zeebe.protocol.record.intent.JobIntent;
+import io.camunda.zeebe.protocol.record.intent.ProcessInstanceIntent;
 import io.camunda.zeebe.protocol.record.intent.VariableIntent;
 import io.camunda.zeebe.protocol.record.value.JobRecordValue;
+import io.camunda.zeebe.protocol.record.value.ProcessInstanceRecordValue;
 import io.camunda.zeebe.protocol.record.value.VariableRecordValue;
 import java.net.URI;
 import java.time.Duration;
@@ -25,14 +27,15 @@ public class EmbeddedJobWorker implements Exporter {
 
   private Controller controller;
   private CamundaClient client;
-  private final ConcurrentMap<Long, String> inputValuesByProcessInstanceKey = new ConcurrentHashMap<>();
+  private final ConcurrentMap<Long, String> inputValuesByProcessInstanceKey =
+      new ConcurrentHashMap<>();
 
   @Override
   public void configure(final Context context) throws Exception {
     context.setFilter(
         new RecordFilter() {
           private static final Set<ValueType> ACCEPTED_VALUE_TYPES =
-              Set.of(ValueType.JOB, ValueType.VARIABLE);
+              Set.of(ValueType.JOB, ValueType.VARIABLE, ValueType.PROCESS_INSTANCE);
 
           @Override
           public boolean acceptType(final RecordType recordType) {
@@ -80,6 +83,17 @@ public class EmbeddedJobWorker implements Exporter {
       controller.scheduleCancellableTask(
           Duration.ofMillis(550),
           () -> client.newCompleteCommand(record.getKey()).variables(outputVariables).send());
+    }
+
+    if (record.getValueType() == ValueType.PROCESS_INSTANCE
+        && record.getIntent() == ProcessInstanceIntent.ELEMENT_COMPLETED) {
+      final ProcessInstanceRecordValue processInstanceRecordValue =
+          (ProcessInstanceRecordValue) record.getValue();
+      if (processInstanceRecordValue
+          .getBpmnProcessId()
+          .equals(processInstanceRecordValue.getElementId())) {
+        inputValuesByProcessInstanceKey.remove(processInstanceRecordValue.getProcessInstanceKey());
+      }
     }
     this.controller.updateLastExportedRecordPosition(record.getPosition());
   }
