@@ -32,8 +32,7 @@ class EmbeddedJobWorkerClasspathIT {
         new GenericContainer<>(DockerImageName.parse("camunda/zeebe:" + zeebeVersion))
             .withExposedPorts(26500)
             .withFileSystemBind(builtJar.toString(), containerJarPath)
-            .withEnv(
-                "CAMUNDA_DATA_EXPORTERS_JOBWORKER_JARPATH", "exporters/" + builtJar.getFileName())
+            .withEnv("CAMUNDA_DATA_EXPORTERS_JOBWORKER_JARPATH", containerJarPath)
             .withEnv(
                 "CAMUNDA_DATA_EXPORTERS_JOBWORKER_CLASSNAME", EmbeddedJobWorker.class.getName())) {
       zeebe.start();
