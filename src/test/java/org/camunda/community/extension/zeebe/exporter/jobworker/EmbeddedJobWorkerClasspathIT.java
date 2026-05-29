@@ -23,7 +23,7 @@ class EmbeddedJobWorkerClasspathIT {
   private static final long POLLING_INTERVAL_MS = 100;
 
   @Test
-  void shouldFailWhenZeebeClientIsNotOnRuntimeClasspath() throws IOException {
+  void shouldFailWhenCamundaClientIsNotOnRuntimeClasspath() throws IOException {
     Assumptions.assumeTrue(DockerClientFactory.instance().isDockerAvailable());
 
     final Path projectRoot = Path.of("").toAbsolutePath();
@@ -45,9 +45,8 @@ class EmbeddedJobWorkerClasspathIT {
       final String logs = zeebe.getLogs();
       assertNotNull(logs);
       assertFalse(zeebe.isRunning(), logs);
-      assertTrue(logs.contains("NoClassDefFoundError: io/camunda/zeebe/client/ZeebeClient"), logs);
-      assertTrue(
-          logs.contains("ClassNotFoundException: io.camunda.zeebe.client.ZeebeClient"), logs);
+      assertTrue(logs.contains("NoClassDefFoundError: io/camunda/client/CamundaClient"), logs);
+      assertTrue(logs.contains("ClassNotFoundException: io.camunda.client.CamundaClient"), logs);
     }
   }
 
