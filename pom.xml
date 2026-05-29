@@ -29,6 +29,8 @@
     <version.java>17</version.java>
     <maven.version>3.0</maven.version>
     <zeebe.version>8.9.0</zeebe.version>
+    <junit.version>5.10.2</junit.version>
+    <testcontainers.version>1.19.8</testcontainers.version>
   </properties>
 
   <dependencies>
@@ -53,19 +55,19 @@
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>
-      <version>5.10.2</version>
+      <version>${junit.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.testcontainers</groupId>
       <artifactId>junit-jupiter</artifactId>
-      <version>1.19.8</version>
+      <version>${testcontainers.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.testcontainers</groupId>
       <artifactId>testcontainers</artifactId>
-      <version>1.19.8</version>
+      <version>${testcontainers.version}</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
@@ -99,6 +101,11 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-failsafe-plugin</artifactId>
         <version>3.2.5</version>
+        <configuration>
+          <systemPropertyVariables>
+            <zeebe.version>${zeebe.version}</zeebe.version>
+          </systemPropertyVariables>
+        </configuration>
         <executions>
           <execution>
             <goals>
