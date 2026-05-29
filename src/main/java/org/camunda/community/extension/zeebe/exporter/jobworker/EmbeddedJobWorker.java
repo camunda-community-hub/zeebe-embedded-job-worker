@@ -40,9 +40,7 @@ public class EmbeddedJobWorker implements Exporter {
   public void open(Controller controller) {
     this.controller = controller;
     this.client =
-        CamundaClient.newClientBuilder()
-            .grpcAddress(URI.create("http://localhost:26500"))
-            .build();
+        CamundaClient.newClientBuilder().grpcAddress(URI.create("http://localhost:26500")).build();
   }
 
   @Override
