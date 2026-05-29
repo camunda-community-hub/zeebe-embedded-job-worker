@@ -41,7 +41,7 @@ public class EmbeddedJobWorker implements Exporter {
     this.controller = controller;
     this.client =
         CamundaClient.newClientBuilder()
-            .grpcAddress(URI.create("http://camunda-zeebe-gateway:26500"))
+            .grpcAddress(URI.create("http://localhost:26500"))
             .build();
   }
 
