@@ -27,6 +27,8 @@ public class EmbeddedJobWorker implements Exporter {
   private static final String GREETING_SUFFIX = " world!";
   private static final String DEFAULT_GATEWAY_ADDRESS = "http://localhost:26500";
   private static final long DEFAULT_JOB_COMPLETION_DELAY_MS = 550L;
+  private static final String MISSING_INPUT_VALUE_ERROR_MESSAGE =
+      "Missing required scoped variable 'inputValue'";
 
   private Controller controller;
   private CamundaClient client;
@@ -124,7 +126,12 @@ public class EmbeddedJobWorker implements Exporter {
 
   private void completeCreatedJobUsingVariablesByScope(
       final JobRecordValue job, final long jobKey) {
-    final String inputVariable = variablesByScope.getOrDefault(job.getElementInstanceKey(), "");
+    final String inputVariable = variablesByScope.get(job.getElementInstanceKey());
+    if (inputVariable == null) {
+      failCreatedJobForMissingInputValue(jobKey);
+      return;
+    }
+
     final Map<String, Object> outputVariables =
         Map.of("jobWorkerResult", true, OUTPUT_VARIABLE_NAME, inputVariable + GREETING_SUFFIX);
 
@@ -141,6 +148,14 @@ public class EmbeddedJobWorker implements Exporter {
                         variablesByScope.remove(job.getElementInstanceKey());
                       }
                     }));
+  }
+
+  private void failCreatedJobForMissingInputValue(final long jobKey) {
+    client
+        .newFailCommand(jobKey)
+        .retries(0)
+        .errorMessage(MISSING_INPUT_VALUE_ERROR_MESSAGE)
+        .send();
   }
 
   private String resolveGatewayAddress() {
