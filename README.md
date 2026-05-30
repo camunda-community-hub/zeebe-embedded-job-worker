@@ -51,5 +51,7 @@ It may feel like extra effort to create local variables but it's actually a cont
 
 The exporter correlates scoped variables named `inputValue` by scope key. A service task input mapping can therefore be used to provide task-local worker input variables, and the cached variable is dropped after successful job completion, on job cancellation, or when the corresponding scope is completed or terminated.
 
+If `inputValue` is missing when a job is created, the exporter fails that job with `retries = 0` and error message `Missing required scoped variable 'inputValue'`.
+
 # Releasing new versions
 1. Create new release on GitHub. Do not follow GitHub's advice to prefix the version number with a `v` for both release name and tag name. The `v` will be added automatically where needed.
