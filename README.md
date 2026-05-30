@@ -43,7 +43,7 @@ A input mapping can be used to get process variables
 
 It may feel like extra effort to create local variables but it's actually a controlled and supported way to get access the current process state at the time when the task is created. If the engine would provide any other facility for exporters to access the variables at the time when a job got created, it would have store a snapshot of that state separately so that the stream processors can continue their work. For to allow exporter failover to another broker, that state would have to be fully replicated. So it would have to be included in the event stream. Now instead of storing a full snapshot of all process variables, using an explicit input mapping allows to store exactly the data that is needed for the job. Furthermore, it fits nicely to the connectors framework, which also employs variable mappings and forces the engine to optimize for high numbers of local variable scopes.
 
-The exporter correlates scoped variables for job-capable task types only (`SERVICE_TASK`, `BUSINESS_RULE_TASK`, `SEND_TASK`). A service task input mapping can therefore be used to provide task-local worker input values.
+The exporter correlates scoped variables named `inputValue` by scope key. A service task input mapping can therefore be used to provide task-local worker input variables, and the cached variable is dropped after a successful job completion.
 
 # Releasing new versions
 1. Create new release on GitHub. Do not follow GitHub's advice to prefix the version number with a `v` for both release name and tag name. The `v` will be added automatically where needed.
