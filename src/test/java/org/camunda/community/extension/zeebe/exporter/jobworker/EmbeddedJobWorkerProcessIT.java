@@ -7,8 +7,8 @@ import io.camunda.client.CamundaClient;
 import io.camunda.client.api.JsonMapper;
 import io.camunda.client.api.command.ClientStatusException;
 import io.camunda.client.api.response.ProcessInstanceResult;
-import io.camunda.client.impl.basicauth.BasicAuthCredentialsProviderBuilder;
 import io.camunda.client.impl.CamundaObjectMapper;
+import io.camunda.client.impl.basicauth.BasicAuthCredentialsProviderBuilder;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
@@ -26,9 +26,10 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.utility.DockerImageName;
 
 class EmbeddedJobWorkerProcessIT {
-  private static final String EXPORTED_ARTIFACT_PREFIX = "zeebe-embedded-job-worker-";
+  private static final String EXPORTER_JAR_PREFIX = "zeebe-embedded-job-worker-";
   private static final String PROCESS_ID = "embedded-job-worker-test-process";
   private static final String PROCESS_RESOURCE = "embedded-job-worker-test-process.bpmn";
+  private static final String DEFAULT_ZEEBE_VERSION = "8.9.0";
   private static final Duration GATEWAY_READY_TIMEOUT = Duration.ofSeconds(30);
   private static final long POLLING_INTERVAL_MS = 200;
   private static final JsonMapper JSON_MAPPER = new CamundaObjectMapper();
@@ -40,7 +41,7 @@ class EmbeddedJobWorkerProcessIT {
     final Path projectRoot = Path.of("").toAbsolutePath();
     final Path builtJar = findBuiltExporterJar(projectRoot.resolve("target"));
     final String containerJarPath = "/usr/local/zeebe/exporters/" + builtJar.getFileName();
-    final String zeebeVersion = System.getProperty("zeebe.version", "8.9.0");
+    final String zeebeVersion = System.getProperty("zeebe.version", DEFAULT_ZEEBE_VERSION);
 
     try (final GenericContainer<?> zeebe =
         new GenericContainer<>(DockerImageName.parse("camunda/zeebe:" + zeebeVersion))
@@ -82,7 +83,8 @@ class EmbeddedJobWorkerProcessIT {
                   .join();
 
           assertNotNull(result);
-          final Map<String, Object> resultVariables = JSON_MAPPER.fromJsonAsMap(result.getVariables());
+          final Map<String, Object> resultVariables =
+              JSON_MAPPER.fromJsonAsMap(result.getVariables());
           assertEquals("hello", resultVariables.get("inputValue"));
           assertEquals("hello world!", resultVariables.get("greeting"));
           assertEquals(Boolean.TRUE, resultVariables.get("jobWorkerResult"));
@@ -137,7 +139,7 @@ class EmbeddedJobWorkerProcessIT {
       final Optional<Path> jar =
           files
               .filter(path -> path.getFileName().toString().endsWith(".jar"))
-              .filter(path -> path.getFileName().toString().startsWith(EXPORTED_ARTIFACT_PREFIX))
+              .filter(path -> path.getFileName().toString().startsWith(EXPORTER_JAR_PREFIX))
               .filter(path -> !path.getFileName().toString().endsWith("-sources.jar"))
               .filter(path -> !path.getFileName().toString().endsWith("-javadoc.jar"))
               .max(Comparator.comparing(path -> path.toFile().lastModified()));

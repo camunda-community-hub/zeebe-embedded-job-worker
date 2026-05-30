@@ -28,7 +28,8 @@ public class EmbeddedJobWorker implements Exporter {
   private static final String OUTPUT_VARIABLE_NAME = "greeting";
   private static final String GREETING_SUFFIX = " world!";
   private static final String DEFAULT_GATEWAY_ADDRESS = "http://localhost:26500";
-  private static final String GATEWAY_ADDRESS_ENV = "CAMUNDA_DATA_EXPORTERS_JOBWORKER_GATEWAYADDRESS";
+  private static final String GATEWAY_ADDRESS_ENV =
+      "CAMUNDA_DATA_EXPORTERS_JOBWORKER_GATEWAYADDRESS";
   private static final String GATEWAY_ADDRESS_PROPERTY =
       "camunda.data.exporters.jobworker.gatewayAddress";
 
@@ -121,14 +122,23 @@ public class EmbeddedJobWorker implements Exporter {
       return gatewayAddressFromEnvironment;
     }
 
-    if (configuration.gatewayAddress != null && !configuration.gatewayAddress.isBlank()) {
-      return configuration.gatewayAddress;
+    final String gatewayAddressFromConfiguration = configuration.getGatewayAddress();
+    if (gatewayAddressFromConfiguration != null && !gatewayAddressFromConfiguration.isBlank()) {
+      return gatewayAddressFromConfiguration;
     }
 
     return DEFAULT_GATEWAY_ADDRESS;
   }
 
   public static final class JobWorkerExporterConfiguration {
-    public String gatewayAddress = DEFAULT_GATEWAY_ADDRESS;
+    private String gatewayAddress = DEFAULT_GATEWAY_ADDRESS;
+
+    public String getGatewayAddress() {
+      return gatewayAddress;
+    }
+
+    public void setGatewayAddress(final String gatewayAddress) {
+      this.gatewayAddress = gatewayAddress;
+    }
   }
 }
