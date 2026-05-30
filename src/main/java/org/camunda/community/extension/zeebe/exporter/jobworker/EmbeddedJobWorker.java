@@ -71,14 +71,12 @@ public class EmbeddedJobWorker implements Exporter {
   @Override
   public void export(io.camunda.zeebe.protocol.record.Record<?> record) {
     switch (record.getValueType()) {
-      case VARIABLE ->
-          updateVariablesByScopeFromVariableEvent(
-              (VariableIntent) record.getIntent(), (VariableRecordValue) record.getValue());
-      case PROCESS_INSTANCE ->
-          removeVariablesByScopeFromProcessInstanceEvent(
-              (ProcessInstanceIntent) record.getIntent(), record.getKey());
-      case JOB ->
-          handleJobEvent((JobIntent) record.getIntent(), (JobRecordValue) record.getValue(), record.getKey());
+      case VARIABLE -> updateVariablesByScopeFromVariableEvent(
+          (VariableIntent) record.getIntent(), (VariableRecordValue) record.getValue());
+      case PROCESS_INSTANCE -> removeVariablesByScopeFromProcessInstanceEvent(
+          (ProcessInstanceIntent) record.getIntent(), record.getKey());
+      case JOB -> handleJobEvent(
+          (JobIntent) record.getIntent(), (JobRecordValue) record.getValue(), record.getKey());
       default -> {}
     }
 
@@ -123,7 +121,8 @@ public class EmbeddedJobWorker implements Exporter {
     variablesByScope.remove(job.getElementInstanceKey());
   }
 
-  private void completeCreatedJobUsingVariablesByScope(final JobRecordValue job, final long jobKey) {
+  private void completeCreatedJobUsingVariablesByScope(
+      final JobRecordValue job, final long jobKey) {
     final String inputVariable = variablesByScope.getOrDefault(job.getElementInstanceKey(), "");
     final Map<String, Object> outputVariables =
         Map.of("jobWorkerResult", true, OUTPUT_VARIABLE_NAME, inputVariable + GREETING_SUFFIX);
