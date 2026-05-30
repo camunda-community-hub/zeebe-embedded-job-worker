@@ -17,12 +17,12 @@ See [helm-chart-values.yaml](helm-chart-values.yaml)
 
 # Configuration
 
-The embedded worker gateway target can be configured in one of these ways (highest priority first):
+The embedded worker gateway target can be configured in one of these ways:
 
-1. JVM system property: `-Dcamunda.data.exporters.jobworker.gatewayAddress=http://host:26500`
-2. Environment variable: `CAMUNDA_DATA_EXPORTERS_JOBWORKER_GATEWAYADDRESS`
-3. Exporter argument `gatewayAddress` in Zeebe exporter configuration
-4. Default: `http://localhost:26500`
+1. Exporter argument `gatewayAddress` in Zeebe exporter configuration
+2. Default: `http://localhost:26500`
+
+If you configure exporters through environment variables, use Zeebe broker config mapping for exporter args (for example `ZEEBE_BROKER_EXPORTERS_JOBWORKER_ARGS_GATEWAYADDRESS`).
 
 Example exporter configuration:
 
