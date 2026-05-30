@@ -30,7 +30,7 @@ public class EmbeddedJobWorker implements Exporter {
   private Controller controller;
   private CamundaClient client;
   private final JsonMapper jsonMapper = new CamundaObjectMapper();
-  private final ConcurrentMap<Long, String> inputVariablesByScopeKey = new ConcurrentHashMap<>();
+  private final ConcurrentMap<Long, String> variablesByScope = new ConcurrentHashMap<>();
   private JobWorkerExporterConfiguration configuration = new JobWorkerExporterConfiguration();
 
   @Override
@@ -71,8 +71,8 @@ public class EmbeddedJobWorker implements Exporter {
   @Override
   public void export(io.camunda.zeebe.protocol.record.Record<?> record) {
     switch (record.getValueType()) {
-      case VARIABLE -> warmUpCacheFromVariableEvent(record);
-      case PROCESS_INSTANCE -> cleanUpCacheFromProcessInstanceEvent(record);
+      case VARIABLE -> updateVariablesByScopeFromVariableEvent(record);
+      case PROCESS_INSTANCE -> removeVariablesByScopeFromProcessInstanceEvent(record);
       case JOB -> handleJobEvent(record);
       default -> {}
     }
@@ -80,7 +80,7 @@ public class EmbeddedJobWorker implements Exporter {
     this.controller.updateLastExportedRecordPosition(record.getPosition());
   }
 
-  private void warmUpCacheFromVariableEvent(
+  private void updateVariablesByScopeFromVariableEvent(
       final io.camunda.zeebe.protocol.record.Record<?> record) {
     if (record.getIntent() != VariableIntent.CREATED
         && record.getIntent() != VariableIntent.UPDATED) {
@@ -93,40 +93,38 @@ public class EmbeddedJobWorker implements Exporter {
     }
 
     final long scopeKey = variableRecordValue.getScopeKey();
-    inputVariablesByScopeKey.put(
-        scopeKey, jsonMapper.fromJson(variableRecordValue.getValue(), String.class));
+    variablesByScope.put(scopeKey, jsonMapper.fromJson(variableRecordValue.getValue(), String.class));
   }
 
-  private void cleanUpCacheFromProcessInstanceEvent(
+  private void removeVariablesByScopeFromProcessInstanceEvent(
       final io.camunda.zeebe.protocol.record.Record<?> record) {
     if (record.getIntent() == ProcessInstanceIntent.ELEMENT_COMPLETED
         || record.getIntent() == ProcessInstanceIntent.ELEMENT_TERMINATED) {
-      inputVariablesByScopeKey.remove(record.getKey());
+      variablesByScope.remove(record.getKey());
     }
   }
 
   private void handleJobEvent(final io.camunda.zeebe.protocol.record.Record<?> record) {
     if (record.getIntent() == JobIntent.CREATED) {
-      completeCreatedJobUsingCachedInputVariable(record);
+      completeCreatedJobUsingVariablesByScope(record);
       return;
     }
 
     if (record.getIntent() == JobIntent.CANCELED || record.getIntent() == JobIntent.COMPLETED) {
-      evictCachedInputVariableForFinishedJob(record);
+      removeVariablesByScopeForFinishedJob(record);
     }
   }
 
-  private void evictCachedInputVariableForFinishedJob(
+  private void removeVariablesByScopeForFinishedJob(
       final io.camunda.zeebe.protocol.record.Record<?> record) {
     final JobRecordValue value = (JobRecordValue) record.getValue();
-    inputVariablesByScopeKey.remove(value.getElementInstanceKey());
+    variablesByScope.remove(value.getElementInstanceKey());
   }
 
-  private void completeCreatedJobUsingCachedInputVariable(
+  private void completeCreatedJobUsingVariablesByScope(
       final io.camunda.zeebe.protocol.record.Record<?> record) {
     final JobRecordValue job = (JobRecordValue) record.getValue();
-    final String inputVariable =
-        inputVariablesByScopeKey.getOrDefault(job.getElementInstanceKey(), "");
+    final String inputVariable = variablesByScope.getOrDefault(job.getElementInstanceKey(), "");
     final Map<String, Object> outputVariables =
         Map.of("jobWorkerResult", true, OUTPUT_VARIABLE_NAME, inputVariable + GREETING_SUFFIX);
 
@@ -140,7 +138,7 @@ public class EmbeddedJobWorker implements Exporter {
                 .whenComplete(
                     (ignored, error) -> {
                       if (error == null) {
-                        inputVariablesByScopeKey.remove(job.getElementInstanceKey());
+                        variablesByScope.remove(job.getElementInstanceKey());
                       }
                     }));
   }
