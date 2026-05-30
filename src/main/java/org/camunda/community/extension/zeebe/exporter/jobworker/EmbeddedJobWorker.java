@@ -82,7 +82,8 @@ public class EmbeddedJobWorker implements Exporter {
 
   private void warmUpCacheFromVariableEvent(
       final io.camunda.zeebe.protocol.record.Record<?> record) {
-    if (record.getIntent() != VariableIntent.CREATED && record.getIntent() != VariableIntent.UPDATED) {
+    if (record.getIntent() != VariableIntent.CREATED
+        && record.getIntent() != VariableIntent.UPDATED) {
       return;
     }
 
