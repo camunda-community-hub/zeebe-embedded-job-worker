@@ -1,6 +1,8 @@
 package org.camunda.community.extension.zeebe.exporter.jobworker;
 
 import io.camunda.client.CamundaClient;
+import io.camunda.client.api.JsonMapper;
+import io.camunda.client.impl.CamundaObjectMapper;
 import io.camunda.zeebe.exporter.api.Exporter;
 import io.camunda.zeebe.exporter.api.context.Context;
 import io.camunda.zeebe.exporter.api.context.Context.RecordFilter;
@@ -10,6 +12,7 @@ import io.camunda.zeebe.protocol.record.ValueType;
 import io.camunda.zeebe.protocol.record.intent.JobIntent;
 import io.camunda.zeebe.protocol.record.intent.ProcessInstanceIntent;
 import io.camunda.zeebe.protocol.record.intent.VariableIntent;
+import io.camunda.zeebe.protocol.record.value.BpmnElementType;
 import io.camunda.zeebe.protocol.record.value.JobRecordValue;
 import io.camunda.zeebe.protocol.record.value.ProcessInstanceRecordValue;
 import io.camunda.zeebe.protocol.record.value.VariableRecordValue;
@@ -24,14 +27,21 @@ public class EmbeddedJobWorker implements Exporter {
   private static final String INPUT_VARIABLE_NAME = "inputValue";
   private static final String OUTPUT_VARIABLE_NAME = "greeting";
   private static final String GREETING_SUFFIX = " world!";
+  private static final String DEFAULT_GATEWAY_ADDRESS = "http://localhost:26500";
+  private static final String GATEWAY_ADDRESS_ENV = "CAMUNDA_DATA_EXPORTERS_JOBWORKER_GATEWAYADDRESS";
+  private static final String GATEWAY_ADDRESS_PROPERTY =
+      "camunda.data.exporters.jobworker.gatewayAddress";
 
   private Controller controller;
   private CamundaClient client;
+  private final JsonMapper jsonMapper = new CamundaObjectMapper();
   private final ConcurrentMap<Long, String> inputValuesByProcessInstanceKey =
       new ConcurrentHashMap<>();
+  private JobWorkerExporterConfiguration configuration = new JobWorkerExporterConfiguration();
 
   @Override
   public void configure(final Context context) throws Exception {
+    configuration = context.getConfiguration().instantiate(JobWorkerExporterConfiguration.class);
     context.setFilter(
         new RecordFilter() {
           private static final Set<ValueType> ACCEPTED_VALUE_TYPES =
@@ -53,7 +63,10 @@ public class EmbeddedJobWorker implements Exporter {
   public void open(Controller controller) {
     this.controller = controller;
     this.client =
-        CamundaClient.newClientBuilder().grpcAddress(URI.create("http://localhost:26500")).build();
+        CamundaClient.newClientBuilder()
+            .grpcAddress(URI.create(resolveGatewayAddress()))
+            .preferRestOverGrpc(false)
+            .build();
   }
 
   @Override
@@ -70,7 +83,7 @@ public class EmbeddedJobWorker implements Exporter {
       if (INPUT_VARIABLE_NAME.equals(variableRecordValue.getName())) {
         inputValuesByProcessInstanceKey.put(
             variableRecordValue.getProcessInstanceKey(),
-            stripStringQuotes(variableRecordValue.getValue()));
+            jsonMapper.fromJson(variableRecordValue.getValue(), String.class));
       }
     }
 
@@ -86,24 +99,36 @@ public class EmbeddedJobWorker implements Exporter {
     }
 
     if (record.getValueType() == ValueType.PROCESS_INSTANCE
-        && record.getIntent() == ProcessInstanceIntent.ELEMENT_COMPLETED) {
+        && (record.getIntent() == ProcessInstanceIntent.ELEMENT_COMPLETED
+            || record.getIntent() == ProcessInstanceIntent.ELEMENT_TERMINATED)) {
       final ProcessInstanceRecordValue processInstanceRecordValue =
           (ProcessInstanceRecordValue) record.getValue();
-      if (processInstanceRecordValue
-          .getBpmnProcessId()
-          .equals(processInstanceRecordValue.getElementId())) {
+      if (processInstanceRecordValue.getBpmnElementType() == BpmnElementType.PROCESS) {
         inputValuesByProcessInstanceKey.remove(processInstanceRecordValue.getProcessInstanceKey());
       }
     }
     this.controller.updateLastExportedRecordPosition(record.getPosition());
   }
 
-  private String stripStringQuotes(final String jsonValue) {
-    if (jsonValue != null && jsonValue.length() >= 2) {
-      if (jsonValue.charAt(0) == '"' && jsonValue.charAt(jsonValue.length() - 1) == '"') {
-        return jsonValue.substring(1, jsonValue.length() - 1);
-      }
+  private String resolveGatewayAddress() {
+    final String gatewayAddressFromProperty = System.getProperty(GATEWAY_ADDRESS_PROPERTY);
+    if (gatewayAddressFromProperty != null && !gatewayAddressFromProperty.isBlank()) {
+      return gatewayAddressFromProperty;
     }
-    return jsonValue;
+
+    final String gatewayAddressFromEnvironment = System.getenv(GATEWAY_ADDRESS_ENV);
+    if (gatewayAddressFromEnvironment != null && !gatewayAddressFromEnvironment.isBlank()) {
+      return gatewayAddressFromEnvironment;
+    }
+
+    if (configuration.gatewayAddress != null && !configuration.gatewayAddress.isBlank()) {
+      return configuration.gatewayAddress;
+    }
+
+    return DEFAULT_GATEWAY_ADDRESS;
+  }
+
+  public static final class JobWorkerExporterConfiguration {
+    public String gatewayAddress = DEFAULT_GATEWAY_ADDRESS;
   }
 }

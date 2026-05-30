@@ -1,12 +1,14 @@
 package org.camunda.community.extension.zeebe.exporter.jobworker;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.camunda.client.CamundaClient;
+import io.camunda.client.api.JsonMapper;
 import io.camunda.client.api.command.ClientStatusException;
 import io.camunda.client.api.response.ProcessInstanceResult;
 import io.camunda.client.impl.basicauth.BasicAuthCredentialsProviderBuilder;
+import io.camunda.client.impl.CamundaObjectMapper;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
@@ -29,6 +31,7 @@ class EmbeddedJobWorkerProcessIT {
   private static final String PROCESS_RESOURCE = "embedded-job-worker-test-process.bpmn";
   private static final Duration GATEWAY_READY_TIMEOUT = Duration.ofSeconds(30);
   private static final long POLLING_INTERVAL_MS = 200;
+  private static final JsonMapper JSON_MAPPER = new CamundaObjectMapper();
 
   @Test
   void shouldCompleteServiceTaskAndReturnResultVariables() throws IOException {
@@ -79,9 +82,10 @@ class EmbeddedJobWorkerProcessIT {
                   .join();
 
           assertNotNull(result);
-          assertTrue(result.getVariables().contains("\"inputValue\":\"hello\""));
-          assertTrue(result.getVariables().contains("\"greeting\":\"hello world!\""));
-          assertTrue(result.getVariables().contains("\"jobWorkerResult\":true"));
+          final Map<String, Object> resultVariables = JSON_MAPPER.fromJsonAsMap(result.getVariables());
+          assertEquals("hello", resultVariables.get("inputValue"));
+          assertEquals("hello world!", resultVariables.get("greeting"));
+          assertEquals(Boolean.TRUE, resultVariables.get("jobWorkerResult"));
         } catch (ClientStatusException e) {
           final String message = e.getMessage();
           final boolean unsupportedSecurityConfiguration =
