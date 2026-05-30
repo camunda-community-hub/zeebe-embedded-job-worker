@@ -151,11 +151,7 @@ public class EmbeddedJobWorker implements Exporter {
   }
 
   private void failCreatedJobForMissingInputValue(final long jobKey) {
-    client
-        .newFailCommand(jobKey)
-        .retries(0)
-        .errorMessage(MISSING_INPUT_VALUE_ERROR_MESSAGE)
-        .send();
+    client.newFailCommand(jobKey).retries(0).errorMessage(MISSING_INPUT_VALUE_ERROR_MESSAGE).send();
   }
 
   private String resolveGatewayAddress() {
