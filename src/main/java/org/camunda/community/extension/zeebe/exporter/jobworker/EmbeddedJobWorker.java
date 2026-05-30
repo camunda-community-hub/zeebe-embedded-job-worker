@@ -83,7 +83,9 @@ public class EmbeddedJobWorker implements Exporter {
       inputVariablesByScopeKey.remove(record.getKey());
     }
 
-    if (record.getValueType() == ValueType.JOB && record.getIntent() == JobIntent.DELETED) {
+    if (record.getValueType() == ValueType.JOB
+        && (record.getIntent() == JobIntent.CANCELED
+            || record.getIntent() == JobIntent.COMPLETED)) {
       final JobRecordValue value = (JobRecordValue) record.getValue();
       inputVariablesByScopeKey.remove(value.getElementInstanceKey());
     }
