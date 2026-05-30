@@ -71,9 +71,14 @@ public class EmbeddedJobWorker implements Exporter {
   @Override
   public void export(io.camunda.zeebe.protocol.record.Record<?> record) {
     switch (record.getValueType()) {
-      case VARIABLE -> updateVariablesByScopeFromVariableEvent(record);
-      case PROCESS_INSTANCE -> removeVariablesByScopeFromProcessInstanceEvent(record);
-      case JOB -> handleJobEvent(record);
+      case VARIABLE ->
+          updateVariablesByScopeFromVariableEvent(
+              (VariableIntent) record.getIntent(), (VariableRecordValue) record.getValue());
+      case PROCESS_INSTANCE ->
+          removeVariablesByScopeFromProcessInstanceEvent(
+              (ProcessInstanceIntent) record.getIntent(), record.getKey());
+      case JOB ->
+          handleJobEvent((JobIntent) record.getIntent(), (JobRecordValue) record.getValue(), record.getKey());
       default -> {}
     }
 
@@ -81,13 +86,11 @@ public class EmbeddedJobWorker implements Exporter {
   }
 
   private void updateVariablesByScopeFromVariableEvent(
-      final io.camunda.zeebe.protocol.record.Record<?> record) {
-    if (record.getIntent() != VariableIntent.CREATED
-        && record.getIntent() != VariableIntent.UPDATED) {
+      final VariableIntent intent, final VariableRecordValue variableRecordValue) {
+    if (intent != VariableIntent.CREATED && intent != VariableIntent.UPDATED) {
       return;
     }
 
-    final VariableRecordValue variableRecordValue = (VariableRecordValue) record.getValue();
     if (!INPUT_VARIABLE_NAME.equals(variableRecordValue.getName())) {
       return;
     }
@@ -98,33 +101,29 @@ public class EmbeddedJobWorker implements Exporter {
   }
 
   private void removeVariablesByScopeFromProcessInstanceEvent(
-      final io.camunda.zeebe.protocol.record.Record<?> record) {
-    if (record.getIntent() == ProcessInstanceIntent.ELEMENT_COMPLETED
-        || record.getIntent() == ProcessInstanceIntent.ELEMENT_TERMINATED) {
-      variablesByScope.remove(record.getKey());
+      final ProcessInstanceIntent intent, final long scopeKey) {
+    if (intent == ProcessInstanceIntent.ELEMENT_COMPLETED
+        || intent == ProcessInstanceIntent.ELEMENT_TERMINATED) {
+      variablesByScope.remove(scopeKey);
     }
   }
 
-  private void handleJobEvent(final io.camunda.zeebe.protocol.record.Record<?> record) {
-    if (record.getIntent() == JobIntent.CREATED) {
-      completeCreatedJobUsingVariablesByScope(record);
+  private void handleJobEvent(final JobIntent intent, final JobRecordValue job, final long jobKey) {
+    if (intent == JobIntent.CREATED) {
+      completeCreatedJobUsingVariablesByScope(job, jobKey);
       return;
     }
 
-    if (record.getIntent() == JobIntent.CANCELED || record.getIntent() == JobIntent.COMPLETED) {
-      removeVariablesByScopeForFinishedJob(record);
+    if (intent == JobIntent.CANCELED || intent == JobIntent.COMPLETED) {
+      removeVariablesByScopeForFinishedJob(job);
     }
   }
 
-  private void removeVariablesByScopeForFinishedJob(
-      final io.camunda.zeebe.protocol.record.Record<?> record) {
-    final JobRecordValue value = (JobRecordValue) record.getValue();
-    variablesByScope.remove(value.getElementInstanceKey());
+  private void removeVariablesByScopeForFinishedJob(final JobRecordValue job) {
+    variablesByScope.remove(job.getElementInstanceKey());
   }
 
-  private void completeCreatedJobUsingVariablesByScope(
-      final io.camunda.zeebe.protocol.record.Record<?> record) {
-    final JobRecordValue job = (JobRecordValue) record.getValue();
+  private void completeCreatedJobUsingVariablesByScope(final JobRecordValue job, final long jobKey) {
     final String inputVariable = variablesByScope.getOrDefault(job.getElementInstanceKey(), "");
     final Map<String, Object> outputVariables =
         Map.of("jobWorkerResult", true, OUTPUT_VARIABLE_NAME, inputVariable + GREETING_SUFFIX);
@@ -133,7 +132,7 @@ public class EmbeddedJobWorker implements Exporter {
         Duration.ofMillis(550),
         () ->
             client
-                .newCompleteCommand(record.getKey())
+                .newCompleteCommand(jobKey)
                 .variables(outputVariables)
                 .send()
                 .whenComplete(
