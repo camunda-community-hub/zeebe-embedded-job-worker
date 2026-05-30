@@ -10,6 +10,7 @@ import io.camunda.zeebe.exporter.api.context.Controller;
 import io.camunda.zeebe.protocol.record.RecordType;
 import io.camunda.zeebe.protocol.record.ValueType;
 import io.camunda.zeebe.protocol.record.intent.JobIntent;
+import io.camunda.zeebe.protocol.record.intent.ProcessInstanceIntent;
 import io.camunda.zeebe.protocol.record.intent.VariableIntent;
 import io.camunda.zeebe.protocol.record.value.JobRecordValue;
 import io.camunda.zeebe.protocol.record.value.VariableRecordValue;
@@ -38,7 +39,7 @@ public class EmbeddedJobWorker implements Exporter {
     context.setFilter(
         new RecordFilter() {
           private static final Set<ValueType> ACCEPTED_VALUE_TYPES =
-              Set.of(ValueType.JOB, ValueType.VARIABLE);
+              Set.of(ValueType.JOB, ValueType.VARIABLE, ValueType.PROCESS_INSTANCE);
 
           @Override
           public boolean acceptType(final RecordType recordType) {
@@ -76,7 +77,18 @@ public class EmbeddedJobWorker implements Exporter {
       handleVariableEvent(variableRecordValue);
     }
 
-    if (record.getIntent() == JobIntent.CREATED) {
+    if (record.getValueType() == ValueType.PROCESS_INSTANCE
+        && (record.getIntent() == ProcessInstanceIntent.ELEMENT_COMPLETED
+            || record.getIntent() == ProcessInstanceIntent.ELEMENT_TERMINATED)) {
+      inputVariablesByScopeKey.remove(record.getKey());
+    }
+
+    if (record.getValueType() == ValueType.JOB && record.getIntent() == JobIntent.DELETED) {
+      final JobRecordValue value = (JobRecordValue) record.getValue();
+      inputVariablesByScopeKey.remove(value.getElementInstanceKey());
+    }
+
+    if (record.getValueType() == ValueType.JOB && record.getIntent() == JobIntent.CREATED) {
       final JobRecordValue value = (JobRecordValue) record.getValue();
       final String inputVariable =
           inputVariablesByScopeKey.getOrDefault(value.getElementInstanceKey(), "");
