@@ -28,12 +28,17 @@ public class EmbeddedJobWorker implements Exporter {
   private static final String OUTPUT_VARIABLE_NAME = "greeting";
   private static final String GREETING_SUFFIX = " world!";
   private static final String DEFAULT_GATEWAY_ADDRESS = "http://localhost:26500";
+  private static final Set<BpmnElementType> JOB_CAPABLE_TASK_TYPES =
+      Set.of(
+          BpmnElementType.SERVICE_TASK,
+          BpmnElementType.BUSINESS_RULE_TASK,
+          BpmnElementType.SEND_TASK);
 
   private Controller controller;
   private CamundaClient client;
   private final JsonMapper jsonMapper = new CamundaObjectMapper();
-  private final ConcurrentMap<Long, String> inputValuesByProcessInstanceKey =
-      new ConcurrentHashMap<>();
+  private final Set<Long> eligibleTaskScopeKeys = ConcurrentHashMap.newKeySet();
+  private final ConcurrentMap<Long, String> inputValuesByScopeKey = new ConcurrentHashMap<>();
   private JobWorkerExporterConfiguration configuration = new JobWorkerExporterConfiguration();
 
   @Override
@@ -73,21 +78,20 @@ public class EmbeddedJobWorker implements Exporter {
 
   @Override
   public void export(io.camunda.zeebe.protocol.record.Record<?> record) {
+    if (record.getValueType() == ValueType.PROCESS_INSTANCE) {
+      handleProcessInstanceEvent(record);
+    }
+
     if (record.getValueType() == ValueType.VARIABLE
         && (record.getIntent() == VariableIntent.CREATED
             || record.getIntent() == VariableIntent.UPDATED)) {
       final VariableRecordValue variableRecordValue = (VariableRecordValue) record.getValue();
-      if (INPUT_VARIABLE_NAME.equals(variableRecordValue.getName())) {
-        inputValuesByProcessInstanceKey.put(
-            variableRecordValue.getProcessInstanceKey(),
-            jsonMapper.fromJson(variableRecordValue.getValue(), String.class));
-      }
+      handleVariableEvent(variableRecordValue);
     }
 
     if (record.getIntent() == JobIntent.CREATED) {
       final JobRecordValue value = (JobRecordValue) record.getValue();
-      final String inputValue =
-          inputValuesByProcessInstanceKey.getOrDefault(value.getProcessInstanceKey(), "");
+      final String inputValue = inputValuesByScopeKey.getOrDefault(value.getElementInstanceKey(), "");
       final Map<String, Object> outputVariables =
           Map.of("jobWorkerResult", true, OUTPUT_VARIABLE_NAME, inputValue + GREETING_SUFFIX);
       controller.scheduleCancellableTask(
@@ -95,16 +99,38 @@ public class EmbeddedJobWorker implements Exporter {
           () -> client.newCompleteCommand(record.getKey()).variables(outputVariables).send());
     }
 
-    if (record.getValueType() == ValueType.PROCESS_INSTANCE
-        && (record.getIntent() == ProcessInstanceIntent.ELEMENT_COMPLETED
-            || record.getIntent() == ProcessInstanceIntent.ELEMENT_TERMINATED)) {
-      final ProcessInstanceRecordValue processInstanceRecordValue =
-          (ProcessInstanceRecordValue) record.getValue();
-      if (processInstanceRecordValue.getBpmnElementType() == BpmnElementType.PROCESS) {
-        inputValuesByProcessInstanceKey.remove(processInstanceRecordValue.getProcessInstanceKey());
-      }
-    }
     this.controller.updateLastExportedRecordPosition(record.getPosition());
+  }
+
+  private void handleProcessInstanceEvent(final io.camunda.zeebe.protocol.record.Record<?> record) {
+    final ProcessInstanceRecordValue processInstanceRecordValue =
+        (ProcessInstanceRecordValue) record.getValue();
+    final long elementInstanceKey = record.getKey();
+
+    if (record.getIntent() == ProcessInstanceIntent.ELEMENT_ACTIVATED
+        && JOB_CAPABLE_TASK_TYPES.contains(processInstanceRecordValue.getBpmnElementType())) {
+      eligibleTaskScopeKeys.add(elementInstanceKey);
+      return;
+    }
+
+    if (record.getIntent() == ProcessInstanceIntent.ELEMENT_COMPLETED
+        || record.getIntent() == ProcessInstanceIntent.ELEMENT_TERMINATED) {
+      eligibleTaskScopeKeys.remove(elementInstanceKey);
+      inputValuesByScopeKey.remove(elementInstanceKey);
+    }
+  }
+
+  private void handleVariableEvent(final VariableRecordValue variableRecordValue) {
+    if (!INPUT_VARIABLE_NAME.equals(variableRecordValue.getName())) {
+      return;
+    }
+
+    final long scopeKey = variableRecordValue.getScopeKey();
+    if (!eligibleTaskScopeKeys.contains(scopeKey)) {
+      return;
+    }
+
+    inputValuesByScopeKey.put(scopeKey, jsonMapper.fromJson(variableRecordValue.getValue(), String.class));
   }
 
   private String resolveGatewayAddress() {
