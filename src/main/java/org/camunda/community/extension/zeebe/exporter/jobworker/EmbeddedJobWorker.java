@@ -70,15 +70,17 @@ public class EmbeddedJobWorker implements Exporter {
 
   @Override
   public void export(io.camunda.zeebe.protocol.record.Record<?> record) {
-    cacheInputVariableFromVariableEvents(record);
-    evictCachedInputVariableWhenScopeEnds(record);
-    evictCachedInputVariableWhenJobEnds(record);
-    completeCreatedJobUsingCachedInputVariable(record);
+    switch (record.getValueType()) {
+      case VARIABLE -> warmUpCacheFromVariableEvent(record);
+      case PROCESS_INSTANCE -> cleanUpCacheFromProcessInstanceEvent(record);
+      case JOB -> handleJobEvent(record);
+      default -> {}
+    }
 
     this.controller.updateLastExportedRecordPosition(record.getPosition());
   }
 
-  private void cacheInputVariableFromVariableEvents(
+  private void warmUpCacheFromVariableEvent(
       final io.camunda.zeebe.protocol.record.Record<?> record) {
     if (record.getValueType() != ValueType.VARIABLE
         || (record.getIntent() != VariableIntent.CREATED
@@ -96,7 +98,7 @@ public class EmbeddedJobWorker implements Exporter {
         scopeKey, jsonMapper.fromJson(variableRecordValue.getValue(), String.class));
   }
 
-  private void evictCachedInputVariableWhenScopeEnds(
+  private void cleanUpCacheFromProcessInstanceEvent(
       final io.camunda.zeebe.protocol.record.Record<?> record) {
     if (record.getValueType() != ValueType.PROCESS_INSTANCE) {
       return;
@@ -108,24 +110,25 @@ public class EmbeddedJobWorker implements Exporter {
     }
   }
 
-  private void evictCachedInputVariableWhenJobEnds(
-      final io.camunda.zeebe.protocol.record.Record<?> record) {
-    if (record.getValueType() != ValueType.JOB
-        || (record.getIntent() != JobIntent.CANCELED
-            && record.getIntent() != JobIntent.COMPLETED)) {
+  private void handleJobEvent(final io.camunda.zeebe.protocol.record.Record<?> record) {
+    if (record.getIntent() == JobIntent.CREATED) {
+      completeCreatedJobUsingCachedInputVariable(record);
       return;
     }
 
+    if (record.getIntent() == JobIntent.CANCELED || record.getIntent() == JobIntent.COMPLETED) {
+      evictCachedInputVariableForFinishedJob(record);
+    }
+  }
+
+  private void evictCachedInputVariableForFinishedJob(
+      final io.camunda.zeebe.protocol.record.Record<?> record) {
     final JobRecordValue value = (JobRecordValue) record.getValue();
     inputVariablesByScopeKey.remove(value.getElementInstanceKey());
   }
 
   private void completeCreatedJobUsingCachedInputVariable(
       final io.camunda.zeebe.protocol.record.Record<?> record) {
-    if (record.getValueType() != ValueType.JOB || record.getIntent() != JobIntent.CREATED) {
-      return;
-    }
-
     final JobRecordValue job = (JobRecordValue) record.getValue();
     final String inputVariable =
         inputVariablesByScopeKey.getOrDefault(job.getElementInstanceKey(), "");
