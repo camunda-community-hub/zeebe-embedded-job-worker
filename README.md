@@ -15,6 +15,28 @@ We are currently also discussing how to address the root problem in low-latency 
 # Installation in k8s
 See [helm-chart-values.yaml](helm-chart-values.yaml)
 
+# Configuration
+
+The embedded worker gateway target can be configured in one of these ways (highest priority first):
+
+1. JVM system property: `-Dcamunda.data.exporters.jobworker.gatewayAddress=http://host:26500`
+2. Environment variable: `CAMUNDA_DATA_EXPORTERS_JOBWORKER_GATEWAYADDRESS`
+3. Exporter argument `gatewayAddress` in Zeebe exporter configuration
+4. Default: `http://localhost:26500`
+
+Example exporter configuration:
+
+```yaml
+zeebe:
+  broker:
+    exporters:
+      jobworker:
+        className: org.camunda.community.extension.zeebe.exporter.jobworker.EmbeddedJobWorker
+        jarPath: /usr/local/zeebe/exporters/zeebe-embedded-job-worker.jar
+        args:
+          gatewayAddress: http://camunda-zeebe-gateway:26500
+```
+
 # Getting Process Variables through an Input Mapping
 
 A input mapping can be used to get process variables
