@@ -82,9 +82,7 @@ public class EmbeddedJobWorker implements Exporter {
 
   private void warmUpCacheFromVariableEvent(
       final io.camunda.zeebe.protocol.record.Record<?> record) {
-    if (record.getValueType() != ValueType.VARIABLE
-        || (record.getIntent() != VariableIntent.CREATED
-            && record.getIntent() != VariableIntent.UPDATED)) {
+    if (record.getIntent() != VariableIntent.CREATED && record.getIntent() != VariableIntent.UPDATED) {
       return;
     }
 
@@ -100,10 +98,6 @@ public class EmbeddedJobWorker implements Exporter {
 
   private void cleanUpCacheFromProcessInstanceEvent(
       final io.camunda.zeebe.protocol.record.Record<?> record) {
-    if (record.getValueType() != ValueType.PROCESS_INSTANCE) {
-      return;
-    }
-
     if (record.getIntent() == ProcessInstanceIntent.ELEMENT_COMPLETED
         || record.getIntent() == ProcessInstanceIntent.ELEMENT_TERMINATED) {
       inputVariablesByScopeKey.remove(record.getKey());
