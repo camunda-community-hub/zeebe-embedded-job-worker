@@ -22,7 +22,7 @@ The embedded worker gateway target can be configured in one of these ways:
 1. Exporter argument `gatewayAddress` in Zeebe exporter configuration
 2. Default: `http://localhost:26500`
 
-If you configure exporters through environment variables, use Zeebe broker config mapping for exporter args (for example `ZEEBE_BROKER_EXPORTERS_JOBWORKER_ARGS_GATEWAYADDRESS`).
+If you configure exporters through environment variables, use Zeebe broker config mapping for exporter args.
 
 Example exporter configuration:
 
