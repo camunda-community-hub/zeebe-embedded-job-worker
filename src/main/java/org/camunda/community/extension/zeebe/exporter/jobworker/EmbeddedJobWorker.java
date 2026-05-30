@@ -150,7 +150,8 @@ public class EmbeddedJobWorker implements Exporter {
                     }));
   }
 
-  private void failCreatedJobForMissingInputValue(final long jobKey, final long elementInstanceKey) {
+  private void failCreatedJobForMissingInputValue(
+      final long jobKey, final long elementInstanceKey) {
     client
         .newFailCommand(jobKey)
         .retries(0)
