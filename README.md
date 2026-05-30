@@ -22,6 +22,11 @@ The embedded worker gateway target can be configured in one of these ways:
 1. Exporter argument `gatewayAddress` in Zeebe exporter configuration
 2. Default: `http://localhost:26500`
 
+The embedded worker job completion delay can be configured via exporter argument:
+
+1. Exporter argument `jobCompletionDelayMs` in Zeebe exporter configuration
+2. Default: `550`
+
 If you configure exporters through environment variables, use Zeebe broker config mapping for exporter args.
 
 Example exporter configuration:
@@ -35,6 +40,7 @@ zeebe:
         jarPath: /usr/local/zeebe/exporters/zeebe-embedded-job-worker.jar
         args:
           gatewayAddress: http://camunda-zeebe-gateway:26500
+          jobCompletionDelayMs: 550
 ```
 
 # Getting Process Variables through an Input Mapping
