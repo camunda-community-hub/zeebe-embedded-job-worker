@@ -128,7 +128,7 @@ public class EmbeddedJobWorker implements Exporter {
       final JobRecordValue job, final long jobKey) {
     final String inputVariable = variablesByScope.get(job.getElementInstanceKey());
     if (inputVariable == null) {
-      failCreatedJobForMissingInputValue(jobKey);
+      failCreatedJobForMissingInputValue(jobKey, job.getElementInstanceKey());
       return;
     }
 
@@ -150,8 +150,18 @@ public class EmbeddedJobWorker implements Exporter {
                     }));
   }
 
-  private void failCreatedJobForMissingInputValue(final long jobKey) {
-    client.newFailCommand(jobKey).retries(0).errorMessage(MISSING_INPUT_VALUE_ERROR_MESSAGE).send();
+  private void failCreatedJobForMissingInputValue(final long jobKey, final long elementInstanceKey) {
+    client
+        .newFailCommand(jobKey)
+        .retries(0)
+        .errorMessage(MISSING_INPUT_VALUE_ERROR_MESSAGE)
+        .send()
+        .whenComplete(
+            (ignored, error) -> {
+              if (error == null) {
+                variablesByScope.remove(elementInstanceKey);
+              }
+            });
   }
 
   private String resolveGatewayAddress() {
