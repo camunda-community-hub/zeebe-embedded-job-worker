@@ -93,7 +93,8 @@ public class EmbeddedJobWorker implements Exporter {
     }
 
     final long scopeKey = variableRecordValue.getScopeKey();
-    variablesByScope.put(scopeKey, jsonMapper.fromJson(variableRecordValue.getValue(), String.class));
+    variablesByScope.put(
+        scopeKey, jsonMapper.fromJson(variableRecordValue.getValue(), String.class));
   }
 
   private void removeVariablesByScopeFromProcessInstanceEvent(
