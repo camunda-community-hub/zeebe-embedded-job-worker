@@ -91,7 +91,8 @@ public class EmbeddedJobWorker implements Exporter {
 
     if (record.getIntent() == JobIntent.CREATED) {
       final JobRecordValue value = (JobRecordValue) record.getValue();
-      final String inputValue = inputValuesByScopeKey.getOrDefault(value.getElementInstanceKey(), "");
+      final String inputValue =
+          inputValuesByScopeKey.getOrDefault(value.getElementInstanceKey(), "");
       final Map<String, Object> outputVariables =
           Map.of("jobWorkerResult", true, OUTPUT_VARIABLE_NAME, inputValue + GREETING_SUFFIX);
       controller.scheduleCancellableTask(
@@ -130,7 +131,8 @@ public class EmbeddedJobWorker implements Exporter {
       return;
     }
 
-    inputValuesByScopeKey.put(scopeKey, jsonMapper.fromJson(variableRecordValue.getValue(), String.class));
+    inputValuesByScopeKey.put(
+        scopeKey, jsonMapper.fromJson(variableRecordValue.getValue(), String.class));
   }
 
   private String resolveGatewayAddress() {
