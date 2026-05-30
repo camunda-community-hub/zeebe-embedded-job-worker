@@ -26,6 +26,7 @@ public class EmbeddedJobWorker implements Exporter {
   private static final String OUTPUT_VARIABLE_NAME = "greeting";
   private static final String GREETING_SUFFIX = " world!";
   private static final String DEFAULT_GATEWAY_ADDRESS = "http://localhost:26500";
+  private static final long DEFAULT_JOB_COMPLETION_DELAY_MS = 550L;
 
   private Controller controller;
   private CamundaClient client;
@@ -128,7 +129,7 @@ public class EmbeddedJobWorker implements Exporter {
         Map.of("jobWorkerResult", true, OUTPUT_VARIABLE_NAME, inputVariable + GREETING_SUFFIX);
 
     controller.scheduleCancellableTask(
-        Duration.ofMillis(550),
+        Duration.ofMillis(configuration.getJobCompletionDelayMs()),
         () ->
             client
                 .newCompleteCommand(jobKey)
@@ -153,6 +154,7 @@ public class EmbeddedJobWorker implements Exporter {
 
   public static final class JobWorkerExporterConfiguration {
     private String gatewayAddress = DEFAULT_GATEWAY_ADDRESS;
+    private long jobCompletionDelayMs = DEFAULT_JOB_COMPLETION_DELAY_MS;
 
     public String getGatewayAddress() {
       return gatewayAddress;
@@ -160,6 +162,14 @@ public class EmbeddedJobWorker implements Exporter {
 
     public void setGatewayAddress(final String gatewayAddress) {
       this.gatewayAddress = gatewayAddress;
+    }
+
+    public long getJobCompletionDelayMs() {
+      return jobCompletionDelayMs;
+    }
+
+    public void setJobCompletionDelayMs(final long jobCompletionDelayMs) {
+      this.jobCompletionDelayMs = jobCompletionDelayMs;
     }
   }
 }
