@@ -7,6 +7,9 @@
     <bpmn:serviceTask id="Activity_1" name="Complete By Embedded Worker">
       <bpmn:extensionElements>
         <zeebe:taskDefinition type="embedded-job-worker-test" />
+        <zeebe:ioMapping>
+          <zeebe:input source="=inputValue" target="inputValue" />
+        </zeebe:ioMapping>
       </bpmn:extensionElements>
       <bpmn:incoming>Flow_1</bpmn:incoming>
       <bpmn:outgoing>Flow_2</bpmn:outgoing>
