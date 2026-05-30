@@ -70,51 +70,23 @@ public class EmbeddedJobWorker implements Exporter {
 
   @Override
   public void export(io.camunda.zeebe.protocol.record.Record<?> record) {
-    if (record.getValueType() == ValueType.VARIABLE
-        && (record.getIntent() == VariableIntent.CREATED
-            || record.getIntent() == VariableIntent.UPDATED)) {
-      final VariableRecordValue variableRecordValue = (VariableRecordValue) record.getValue();
-      handleVariableEvent(variableRecordValue);
-    }
-
-    if (record.getValueType() == ValueType.PROCESS_INSTANCE
-        && (record.getIntent() == ProcessInstanceIntent.ELEMENT_COMPLETED
-            || record.getIntent() == ProcessInstanceIntent.ELEMENT_TERMINATED)) {
-      inputVariablesByScopeKey.remove(record.getKey());
-    }
-
-    if (record.getValueType() == ValueType.JOB
-        && (record.getIntent() == JobIntent.CANCELED
-            || record.getIntent() == JobIntent.COMPLETED)) {
-      final JobRecordValue value = (JobRecordValue) record.getValue();
-      inputVariablesByScopeKey.remove(value.getElementInstanceKey());
-    }
-
-    if (record.getValueType() == ValueType.JOB && record.getIntent() == JobIntent.CREATED) {
-      final JobRecordValue value = (JobRecordValue) record.getValue();
-      final String inputVariable =
-          inputVariablesByScopeKey.getOrDefault(value.getElementInstanceKey(), "");
-      final Map<String, Object> outputVariables =
-          Map.of("jobWorkerResult", true, OUTPUT_VARIABLE_NAME, inputVariable + GREETING_SUFFIX);
-      controller.scheduleCancellableTask(
-          Duration.ofMillis(550),
-          () ->
-              client
-                  .newCompleteCommand(record.getKey())
-                  .variables(outputVariables)
-                  .send()
-                  .whenComplete(
-                      (ignored, error) -> {
-                        if (error == null) {
-                          inputVariablesByScopeKey.remove(value.getElementInstanceKey());
-                        }
-                      }));
-    }
+    cacheInputVariableFromVariableEvents(record);
+    evictCachedInputVariableWhenScopeEnds(record);
+    evictCachedInputVariableWhenJobEnds(record);
+    completeCreatedJobUsingCachedInputVariable(record);
 
     this.controller.updateLastExportedRecordPosition(record.getPosition());
   }
 
-  private void handleVariableEvent(final VariableRecordValue variableRecordValue) {
+  private void cacheInputVariableFromVariableEvents(
+      final io.camunda.zeebe.protocol.record.Record<?> record) {
+    if (record.getValueType() != ValueType.VARIABLE
+        || (record.getIntent() != VariableIntent.CREATED
+            && record.getIntent() != VariableIntent.UPDATED)) {
+      return;
+    }
+
+    final VariableRecordValue variableRecordValue = (VariableRecordValue) record.getValue();
     if (!INPUT_VARIABLE_NAME.equals(variableRecordValue.getName())) {
       return;
     }
@@ -122,6 +94,57 @@ public class EmbeddedJobWorker implements Exporter {
     final long scopeKey = variableRecordValue.getScopeKey();
     inputVariablesByScopeKey.put(
         scopeKey, jsonMapper.fromJson(variableRecordValue.getValue(), String.class));
+  }
+
+  private void evictCachedInputVariableWhenScopeEnds(
+      final io.camunda.zeebe.protocol.record.Record<?> record) {
+    if (record.getValueType() != ValueType.PROCESS_INSTANCE) {
+      return;
+    }
+
+    if (record.getIntent() == ProcessInstanceIntent.ELEMENT_COMPLETED
+        || record.getIntent() == ProcessInstanceIntent.ELEMENT_TERMINATED) {
+      inputVariablesByScopeKey.remove(record.getKey());
+    }
+  }
+
+  private void evictCachedInputVariableWhenJobEnds(
+      final io.camunda.zeebe.protocol.record.Record<?> record) {
+    if (record.getValueType() != ValueType.JOB
+        || (record.getIntent() != JobIntent.CANCELED
+            && record.getIntent() != JobIntent.COMPLETED)) {
+      return;
+    }
+
+    final JobRecordValue value = (JobRecordValue) record.getValue();
+    inputVariablesByScopeKey.remove(value.getElementInstanceKey());
+  }
+
+  private void completeCreatedJobUsingCachedInputVariable(
+      final io.camunda.zeebe.protocol.record.Record<?> record) {
+    if (record.getValueType() != ValueType.JOB || record.getIntent() != JobIntent.CREATED) {
+      return;
+    }
+
+    final JobRecordValue job = (JobRecordValue) record.getValue();
+    final String inputVariable =
+        inputVariablesByScopeKey.getOrDefault(job.getElementInstanceKey(), "");
+    final Map<String, Object> outputVariables =
+        Map.of("jobWorkerResult", true, OUTPUT_VARIABLE_NAME, inputVariable + GREETING_SUFFIX);
+
+    controller.scheduleCancellableTask(
+        Duration.ofMillis(550),
+        () ->
+            client
+                .newCompleteCommand(record.getKey())
+                .variables(outputVariables)
+                .send()
+                .whenComplete(
+                    (ignored, error) -> {
+                      if (error == null) {
+                        inputVariablesByScopeKey.remove(job.getElementInstanceKey());
+                      }
+                    }));
   }
 
   private String resolveGatewayAddress() {
