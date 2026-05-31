@@ -53,5 +53,16 @@ The exporter correlates scoped variables named `name` by scope key. A service ta
 
 If `name` is missing when a job is created, the exporter fails that job with `retries = 0` and error message `Missing required scoped variable 'name'`.
 
+The exporter supports two modes based on job type:
+
+1. Hello mode for job types `say-hello`, `hello-world`, `say hello`, or `hello world`:
+   - builds `Hello <name>!`
+   - logs the greeting
+   - completes the job immediately (no completion delay)
+   - returns the greeting in variable `greeting`
+2. Default mode for all other job types:
+   - completes the job with the configured `jobCompletionDelayMs`
+   - returns `jobWorkerResult = true`
+
 # Releasing new versions
 1. Create new release on GitHub. Do not follow GitHub's advice to prefix the version number with a `v` for both release name and tag name. The `v` will be added automatically where needed.
