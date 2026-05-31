@@ -25,8 +25,11 @@ import java.util.logging.Logger;
 public class EmbeddedJobWorker implements Exporter {
   private static final String INPUT_VARIABLE_NAME = "name";
   private static final String OUTPUT_VARIABLE_NAME = "greeting";
+  private static final String DEFAULT_RESULT_VARIABLE_NAME = "jobWorkerResult";
   private static final String GREETING_PREFIX = "Hello ";
   private static final String GREETING_SUFFIX = "!";
+  private static final Set<String> HELLO_JOB_TYPES =
+      Set.of("say-hello", "hello-world", "say hello", "hello world");
   private static final String DEFAULT_GATEWAY_ADDRESS = "http://localhost:26500";
   private static final long DEFAULT_JOB_COMPLETION_DELAY_MS = 550L;
   private static final String MISSING_INPUT_VALUE_ERROR_MESSAGE =
@@ -129,6 +132,11 @@ public class EmbeddedJobWorker implements Exporter {
 
   private void completeCreatedJobUsingVariablesByScope(
       final JobRecordValue job, final long jobKey) {
+    if (!isHelloJobType(job.getType())) {
+      completeDefaultCreatedJobWithDelay(job, jobKey);
+      return;
+    }
+
     final String inputVariable = variablesByScope.get(job.getElementInstanceKey());
     if (inputVariable == null) {
       failCreatedJobForMissingInputValue(jobKey, job.getElementInstanceKey());
@@ -138,9 +146,26 @@ public class EmbeddedJobWorker implements Exporter {
     final String greeting = GREETING_PREFIX + inputVariable + GREETING_SUFFIX;
     LOGGER.info(() -> "Greeting built by embedded worker: " + greeting);
     final Map<String, Object> outputVariables = Map.of(OUTPUT_VARIABLE_NAME, greeting);
+    completeCreatedJob(job, jobKey, outputVariables, Duration.ZERO);
+  }
 
+  private boolean isHelloJobType(final String jobType) {
+    return HELLO_JOB_TYPES.contains(jobType == null ? "" : jobType.strip().toLowerCase());
+  }
+
+  private void completeDefaultCreatedJobWithDelay(final JobRecordValue job, final long jobKey) {
+    final Map<String, Object> outputVariables = Map.of(DEFAULT_RESULT_VARIABLE_NAME, true);
+    completeCreatedJob(
+        job, jobKey, outputVariables, Duration.ofMillis(configuration.getJobCompletionDelayMs()));
+  }
+
+  private void completeCreatedJob(
+      final JobRecordValue job,
+      final long jobKey,
+      final Map<String, Object> outputVariables,
+      final Duration delay) {
     controller.scheduleCancellableTask(
-        Duration.ofMillis(configuration.getJobCompletionDelayMs()),
+        delay,
         () ->
             client
                 .newCompleteCommand(jobKey)
