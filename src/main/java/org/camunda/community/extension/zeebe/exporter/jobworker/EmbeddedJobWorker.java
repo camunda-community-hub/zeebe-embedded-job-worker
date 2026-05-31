@@ -20,15 +20,18 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.logging.Logger;
 
 public class EmbeddedJobWorker implements Exporter {
-  private static final String INPUT_VARIABLE_NAME = "inputValue";
+  private static final String INPUT_VARIABLE_NAME = "name";
   private static final String OUTPUT_VARIABLE_NAME = "greeting";
-  private static final String GREETING_SUFFIX = " world!";
+  private static final String GREETING_PREFIX = "Hello ";
+  private static final String GREETING_SUFFIX = "!";
   private static final String DEFAULT_GATEWAY_ADDRESS = "http://localhost:26500";
   private static final long DEFAULT_JOB_COMPLETION_DELAY_MS = 550L;
   private static final String MISSING_INPUT_VALUE_ERROR_MESSAGE =
-      "Missing required scoped variable 'inputValue'";
+      "Missing required scoped variable 'name'";
+  private static final Logger LOGGER = Logger.getLogger(EmbeddedJobWorker.class.getName());
 
   private Controller controller;
   private CamundaClient client;
@@ -132,8 +135,9 @@ public class EmbeddedJobWorker implements Exporter {
       return;
     }
 
-    final Map<String, Object> outputVariables =
-        Map.of("jobWorkerResult", true, OUTPUT_VARIABLE_NAME, inputVariable + GREETING_SUFFIX);
+    final String greeting = GREETING_PREFIX + inputVariable + GREETING_SUFFIX;
+    LOGGER.info(() -> "Greeting built by embedded worker: " + greeting);
+    final Map<String, Object> outputVariables = Map.of(OUTPUT_VARIABLE_NAME, greeting);
 
     controller.scheduleCancellableTask(
         Duration.ofMillis(configuration.getJobCompletionDelayMs()),
