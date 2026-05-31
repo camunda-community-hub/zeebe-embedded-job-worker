@@ -25,7 +25,7 @@ import java.util.logging.Logger;
 public class EmbeddedJobWorker implements Exporter {
   private static final String INPUT_VARIABLE_NAME = "name";
   private static final String OUTPUT_VARIABLE_NAME = "greeting";
-  private static final String DEFAULT_RESULT_VARIABLE_NAME = "jobWorkerResult";
+  private static final String DEFAULT_OUTPUT_VARIABLE_NAME = "jobWorkerResult";
   private static final String GREETING_PREFIX = "Hello ";
   private static final String GREETING_SUFFIX = "!";
   private static final Set<String> HELLO_JOB_TYPES =
@@ -150,11 +150,15 @@ public class EmbeddedJobWorker implements Exporter {
   }
 
   private boolean isHelloJobType(final String jobType) {
-    return HELLO_JOB_TYPES.contains(jobType == null ? "" : jobType.strip().toLowerCase());
+    if (jobType == null) {
+      return false;
+    }
+
+    return HELLO_JOB_TYPES.contains(jobType.trim().toLowerCase());
   }
 
   private void completeDefaultCreatedJobWithDelay(final JobRecordValue job, final long jobKey) {
-    final Map<String, Object> outputVariables = Map.of(DEFAULT_RESULT_VARIABLE_NAME, true);
+    final Map<String, Object> outputVariables = Map.of(DEFAULT_OUTPUT_VARIABLE_NAME, true);
     completeCreatedJob(
         job, jobKey, outputVariables, Duration.ofMillis(configuration.getJobCompletionDelayMs()));
   }
