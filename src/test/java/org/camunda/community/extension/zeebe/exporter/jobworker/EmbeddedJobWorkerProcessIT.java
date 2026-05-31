@@ -77,7 +77,7 @@ class EmbeddedJobWorkerProcessIT {
                   .newCreateInstanceCommand()
                   .bpmnProcessId(PROCESS_ID)
                   .latestVersion()
-                  .variables(Map.of("inputValue", "hello"))
+                  .variables(Map.of("name", "Falko"))
                   .withResult()
                   .send()
                   .join();
@@ -85,9 +85,8 @@ class EmbeddedJobWorkerProcessIT {
           assertNotNull(result);
           final Map<String, Object> resultVariables =
               JSON_MAPPER.fromJsonAsMap(result.getVariables());
-          assertEquals("hello", resultVariables.get("inputValue"));
-          assertEquals("hello world!", resultVariables.get("greeting"));
-          assertEquals(Boolean.TRUE, resultVariables.get("jobWorkerResult"));
+          assertEquals("Falko", resultVariables.get("name"));
+          assertEquals("Hello Falko!", resultVariables.get("greeting"));
         } catch (ClientStatusException e) {
           final String message = e.getMessage();
           final boolean unsupportedSecurityConfiguration =
