@@ -7,25 +7,33 @@ import io.camunda.client.api.response.UserTaskProperties;
 import io.camunda.client.api.search.enums.JobKind;
 import io.camunda.client.api.search.enums.ListenerEventType;
 import io.camunda.zeebe.protocol.record.value.JobRecordValue;
+import java.util.AbstractMap;
+import java.util.AbstractSet;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 final class EmbeddedActivatedJob implements ActivatedJob {
   private final io.camunda.zeebe.protocol.record.Record<?> jobRecord;
   private final JobRecordValue job;
   private final JsonMapper jsonMapper;
+  private final Map<String, String> scopedVariableValues;
   private final Map<String, Object> scopedVariables;
+  private volatile String variablesJson;
 
   EmbeddedActivatedJob(
       final io.camunda.zeebe.protocol.record.Record<?> jobRecord,
       final JsonMapper jsonMapper,
-      final Map<String, Object> scopedVariables) {
+      final Map<String, String> scopedVariableValues) {
     this.jobRecord = jobRecord;
     this.job = (JobRecordValue) jobRecord.getValue();
     this.jsonMapper = jsonMapper;
-    this.scopedVariables = scopedVariables;
+    this.scopedVariableValues = scopedVariableValues;
+    scopedVariables = new LazyParsedVariablesMap(scopedVariableValues, jsonMapper);
   }
 
   @Override
@@ -90,7 +98,22 @@ final class EmbeddedActivatedJob implements ActivatedJob {
 
   @Override
   public String getVariables() {
-    return jsonMapper.toJson(scopedVariables);
+    if (variablesJson == null) {
+      final StringBuilder variableBuilder = new StringBuilder("{");
+      final Iterator<Map.Entry<String, String>> iterator =
+          scopedVariableValues.entrySet().iterator();
+      while (iterator.hasNext()) {
+        final Map.Entry<String, String> variable = iterator.next();
+        variableBuilder.append(jsonMapper.toJson(variable.getKey())).append(':');
+        variableBuilder.append(variable.getValue());
+        if (iterator.hasNext()) {
+          variableBuilder.append(',');
+        }
+      }
+      variableBuilder.append('}');
+      variablesJson = variableBuilder.toString();
+    }
+    return variablesJson;
   }
 
   @Override
@@ -147,5 +170,70 @@ final class EmbeddedActivatedJob implements ActivatedJob {
   @Override
   public Set<String> getTags() {
     return job.getTags();
+  }
+
+  private static final class LazyParsedVariablesMap extends AbstractMap<String, Object> {
+    private final Map<String, String> valuesByName;
+    private final JsonMapper jsonMapper;
+    private final ConcurrentMap<String, Object> parsedValues = new ConcurrentHashMap<>();
+
+    private LazyParsedVariablesMap(
+        final Map<String, String> valuesByName, final JsonMapper jsonMapper) {
+      this.valuesByName = valuesByName;
+      this.jsonMapper = jsonMapper;
+    }
+
+    @Override
+    public Object get(final Object key) {
+      if (!(key instanceof String variableName)) {
+        return null;
+      }
+      return parsedValues.computeIfAbsent(
+          variableName,
+          ignored -> {
+            final String value = valuesByName.get(variableName);
+            if (value == null) {
+              return null;
+            }
+            return jsonMapper.fromJson(value, Object.class);
+          });
+    }
+
+    @Override
+    public boolean containsKey(final Object key) {
+      return valuesByName.containsKey(key);
+    }
+
+    @Override
+    public int size() {
+      return valuesByName.size();
+    }
+
+    @Override
+    public Set<Map.Entry<String, Object>> entrySet() {
+      return new AbstractSet<>() {
+        @Override
+        public Iterator<Map.Entry<String, Object>> iterator() {
+          final Iterator<String> keys = valuesByName.keySet().iterator();
+          return new Iterator<>() {
+            @Override
+            public boolean hasNext() {
+              return keys.hasNext();
+            }
+
+            @Override
+            public Map.Entry<String, Object> next() {
+              final String key = keys.next();
+              return new AbstractMap.SimpleEntry<>(key, LazyParsedVariablesMap.this.get(key));
+            }
+          };
+        }
+
+        @Override
+        public int size() {
+          return valuesByName.size();
+        }
+      };
+    }
   }
 }

@@ -33,7 +33,7 @@ public class EmbeddedJobWorker implements Exporter {
   private Controller controller;
   private CamundaClient client;
   private final JsonMapper jsonMapper = new CamundaObjectMapper();
-  private final ConcurrentMap<Long, ConcurrentMap<String, Object>> variablesByScope =
+  private final ConcurrentMap<Long, ConcurrentMap<String, String>> variablesByScope =
       new ConcurrentHashMap<>();
   private final JobHandler helloWorldJobHandler = new HelloWorldJobHandler();
   private JobHandler delayedCompletionJobHandler;
@@ -81,9 +81,9 @@ public class EmbeddedJobWorker implements Exporter {
     switch (record.getValueType()) {
       case VARIABLE -> updateVariablesByScopeFromVariableEvent(
           (VariableIntent) record.getIntent(), (VariableRecordValue) record.getValue());
+      case JOB -> handleJobEvent((JobIntent) record.getIntent(), record);
       case PROCESS_INSTANCE -> removeVariablesByScopeFromProcessInstanceEvent(
           (ProcessInstanceIntent) record.getIntent(), record.getKey());
-      case JOB -> handleJobEvent((JobIntent) record.getIntent(), record);
       default -> {}
     }
 
@@ -97,11 +97,9 @@ public class EmbeddedJobWorker implements Exporter {
     }
 
     final long scopeKey = variableRecordValue.getScopeKey();
-    final Object scopedVariableValue =
-        jsonMapper.fromJson(variableRecordValue.getValue(), Object.class);
     variablesByScope
         .computeIfAbsent(scopeKey, ignored -> new ConcurrentHashMap<>())
-        .put(variableRecordValue.getName(), scopedVariableValue);
+        .put(variableRecordValue.getName(), variableRecordValue.getValue());
   }
 
   private void removeVariablesByScopeFromProcessInstanceEvent(
@@ -131,7 +129,7 @@ public class EmbeddedJobWorker implements Exporter {
 
   private void handleCreatedJobUsingRegisteredHandlers(
       final io.camunda.zeebe.protocol.record.Record<?> jobRecord, final JobRecordValue job) {
-    final String jobType = job.getType() == null ? "" : job.getType();
+    final String jobType = job.getType();
     final JobHandler jobHandler =
         switch (jobType) {
           case "helloWorld" -> helloWorldJobHandler;
@@ -144,9 +142,9 @@ public class EmbeddedJobWorker implements Exporter {
       final io.camunda.zeebe.protocol.record.Record<?> jobRecord,
       final JobRecordValue job,
       final JobHandler jobHandler) {
-    final Map<String, Object> variablesFromScope =
+    final Map<String, String> variablesFromScope =
         variablesByScope.get(job.getElementInstanceKey());
-    final Map<String, Object> scopedVariables =
+    final Map<String, String> scopedVariables =
         variablesFromScope == null ? Map.of() : variablesFromScope;
     final long jobKey = jobRecord.getKey();
     final ActivatedJob activatedJob =
