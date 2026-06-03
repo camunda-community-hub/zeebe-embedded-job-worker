@@ -2,6 +2,8 @@ package org.camunda.community.extension.zeebe.exporter.jobworker;
 
 import io.camunda.client.CamundaClient;
 import io.camunda.client.api.JsonMapper;
+import io.camunda.client.api.response.ActivatedJob;
+import io.camunda.client.api.worker.JobHandler;
 import io.camunda.client.impl.CamundaObjectMapper;
 import io.camunda.zeebe.exporter.api.Exporter;
 import io.camunda.zeebe.exporter.api.context.Context;
@@ -27,14 +29,15 @@ public class EmbeddedJobWorker implements Exporter {
   private static final String DEFAULT_OUTPUT_VARIABLE_NAME = "jobWorkerResult";
   private static final String DEFAULT_GATEWAY_ADDRESS = "http://localhost:26500";
   private static final long DEFAULT_JOB_COMPLETION_DELAY_MS = 550L;
-  private static final String MISSING_INPUT_VALUE_ERROR_MESSAGE =
-      "Missing required scoped variable 'name'";
+  private static final String JOB_HANDLER_ERROR_MESSAGE_PREFIX =
+      "Embedded JobHandler invocation failed: ";
   private static final Logger LOGGER = Logger.getLogger(EmbeddedJobWorker.class.getName());
 
   private Controller controller;
   private CamundaClient client;
   private final JsonMapper jsonMapper = new CamundaObjectMapper();
   private final ConcurrentMap<Long, String> variablesByScope = new ConcurrentHashMap<>();
+  private final JobHandler helloWorldJobHandler = new HelloWorldJobHandler();
   private JobWorkerExporterConfiguration configuration = new JobWorkerExporterConfiguration();
 
   @Override
@@ -129,21 +132,23 @@ public class EmbeddedJobWorker implements Exporter {
       final JobRecordValue job, final long jobKey) {
     final String jobType = job.getType() == null ? "" : job.getType();
     switch (jobType) {
-      case "helloWorld" -> completeHelloWorldCreatedJob(job, jobKey);
+      case "helloWorld" -> invokeHandlerForCreatedJob(job, jobKey, helloWorldJobHandler);
       default -> completeDefaultCreatedJobWithDelay(job, jobKey);
     }
   }
 
-  private void completeHelloWorldCreatedJob(final JobRecordValue job, final long jobKey) {
+  private void invokeHandlerForCreatedJob(
+      final JobRecordValue job, final long jobKey, final JobHandler jobHandler) {
     final String inputVariable = variablesByScope.get(job.getElementInstanceKey());
-    if (inputVariable == null) {
-      failCreatedJobForMissingInputValue(jobKey, job.getElementInstanceKey());
-      return;
+    final Map<String, Object> scopedVariables =
+        inputVariable == null ? Map.of() : Map.of(INPUT_VARIABLE_NAME, inputVariable);
+    final ActivatedJob activatedJob = new EmbeddedActivatedJob(jobKey, job, jsonMapper, scopedVariables);
+    try {
+      jobHandler.handle(client, activatedJob);
+    } catch (Exception e) {
+      LOGGER.warning(() -> "Job handler invocation failed for job " + jobKey + ": " + e.getMessage());
+      failCreatedJob(jobKey, job.getElementInstanceKey(), JOB_HANDLER_ERROR_MESSAGE_PREFIX + e.getMessage());
     }
-
-    final String greeting = "Hello " + inputVariable + "!";
-    LOGGER.info(() -> "Greeting built by embedded worker: " + greeting);
-    completeCreatedJob(job, jobKey, Map.of("greeting", greeting), Duration.ZERO);
   }
 
   private void completeDefaultCreatedJobWithDelay(final JobRecordValue job, final long jobKey) {
@@ -172,12 +177,12 @@ public class EmbeddedJobWorker implements Exporter {
                     }));
   }
 
-  private void failCreatedJobForMissingInputValue(
-      final long jobKey, final long elementInstanceKey) {
+  private void failCreatedJob(
+      final long jobKey, final long elementInstanceKey, final String errorMessage) {
     client
         .newFailCommand(jobKey)
         .retries(0)
-        .errorMessage(MISSING_INPUT_VALUE_ERROR_MESSAGE)
+        .errorMessage(errorMessage)
         .send()
         .whenComplete(
             (ignored, error) -> {
