@@ -13,25 +13,24 @@ import java.util.Map;
 import java.util.Set;
 
 final class EmbeddedActivatedJob implements ActivatedJob {
-  private final long key;
+  private final io.camunda.zeebe.protocol.record.Record<?> jobRecord;
   private final JobRecordValue job;
   private final JsonMapper jsonMapper;
   private final Map<String, Object> scopedVariables;
 
   EmbeddedActivatedJob(
-      final long key,
-      final JobRecordValue job,
+      final io.camunda.zeebe.protocol.record.Record<?> jobRecord,
       final JsonMapper jsonMapper,
       final Map<String, Object> scopedVariables) {
-    this.key = key;
-    this.job = job;
+    this.jobRecord = jobRecord;
+    this.job = (JobRecordValue) jobRecord.getValue();
     this.jsonMapper = jsonMapper;
-    this.scopedVariables = Map.copyOf(scopedVariables);
+    this.scopedVariables = scopedVariables;
   }
 
   @Override
   public long getKey() {
-    return key;
+    return jobRecord.getKey();
   }
 
   @Override
@@ -71,8 +70,7 @@ final class EmbeddedActivatedJob implements ActivatedJob {
 
   @Override
   public Map<String, String> getCustomHeaders() {
-    final Map<String, String> customHeaders = job.getCustomHeaders();
-    return customHeaders == null ? Map.of() : customHeaders;
+    return job.getCustomHeaders();
   }
 
   @Override
@@ -117,37 +115,18 @@ final class EmbeddedActivatedJob implements ActivatedJob {
 
   @Override
   public JobKind getKind() {
-    final io.camunda.zeebe.protocol.record.value.JobKind jobKind = job.getJobKind();
-    if (jobKind == null) {
-      return JobKind.UNKNOWN_ENUM_VALUE;
-    }
-
-    try {
-      return JobKind.valueOf(jobKind.name());
-    } catch (IllegalArgumentException ignored) {
-      return JobKind.UNKNOWN_ENUM_VALUE;
-    }
+    return JobKind.valueOf(job.getJobKind().name());
   }
 
   @Override
   public ListenerEventType getListenerEventType() {
-    final io.camunda.zeebe.protocol.record.value.JobListenerEventType listenerEventType =
-        job.getJobListenerEventType();
-    if (listenerEventType == null) {
-      return ListenerEventType.UNKNOWN_ENUM_VALUE;
-    }
-
-    try {
-      return ListenerEventType.valueOf(listenerEventType.name());
-    } catch (IllegalArgumentException ignored) {
-      return ListenerEventType.UNKNOWN_ENUM_VALUE;
-    }
+    return ListenerEventType.valueOf(job.getJobListenerEventType().name());
   }
 
   @Override
   public String toJson() {
     final Map<String, Object> json = new HashMap<>();
-    json.put("key", key);
+    json.put("key", getKey());
     json.put("type", getType());
     json.put("processInstanceKey", getProcessInstanceKey());
     json.put("elementInstanceKey", getElementInstanceKey());
@@ -167,7 +146,6 @@ final class EmbeddedActivatedJob implements ActivatedJob {
 
   @Override
   public Set<String> getTags() {
-    final Set<String> tags = job.getTags();
-    return tags == null ? Set.of() : tags;
+    return job.getTags();
   }
 }
