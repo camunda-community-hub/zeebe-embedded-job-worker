@@ -68,8 +68,7 @@ public class EmbeddedJobWorker implements Exporter {
             .preferRestOverGrpc(false)
             .build();
     delayedCompletionJobHandler =
-        new DelayedCompletionJobHandler(
-            controller, configuration.getJobCompletionDelayMs(), variablesByScope::remove);
+        new DelayedCompletionJobHandler(controller, configuration.getJobCompletionDelayMs());
   }
 
   @Override
@@ -84,8 +83,7 @@ public class EmbeddedJobWorker implements Exporter {
           (VariableIntent) record.getIntent(), (VariableRecordValue) record.getValue());
       case PROCESS_INSTANCE -> removeVariablesByScopeFromProcessInstanceEvent(
           (ProcessInstanceIntent) record.getIntent(), record.getKey());
-      case JOB -> handleJobEvent(
-          (JobIntent) record.getIntent(), (JobRecordValue) record.getValue(), record.getKey());
+      case JOB -> handleJobEvent((JobIntent) record.getIntent(), record);
       default -> {}
     }
 
@@ -114,9 +112,11 @@ public class EmbeddedJobWorker implements Exporter {
     }
   }
 
-  private void handleJobEvent(final JobIntent intent, final JobRecordValue job, final long jobKey) {
+  private void handleJobEvent(
+      final JobIntent intent, final io.camunda.zeebe.protocol.record.Record<?> jobRecord) {
+    final JobRecordValue job = (JobRecordValue) jobRecord.getValue();
     if (intent == JobIntent.CREATED) {
-      handleCreatedJobUsingRegisteredHandlers(job, jobKey);
+      handleCreatedJobUsingRegisteredHandlers(jobRecord, job);
       return;
     }
 
@@ -130,24 +130,27 @@ public class EmbeddedJobWorker implements Exporter {
   }
 
   private void handleCreatedJobUsingRegisteredHandlers(
-      final JobRecordValue job, final long jobKey) {
+      final io.camunda.zeebe.protocol.record.Record<?> jobRecord, final JobRecordValue job) {
     final String jobType = job.getType() == null ? "" : job.getType();
     final JobHandler jobHandler =
         switch (jobType) {
           case "helloWorld" -> helloWorldJobHandler;
           default -> delayedCompletionJobHandler;
         };
-    invokeHandlerForCreatedJob(job, jobKey, jobHandler);
+    invokeHandlerForCreatedJob(jobRecord, job, jobHandler);
   }
 
   private void invokeHandlerForCreatedJob(
-      final JobRecordValue job, final long jobKey, final JobHandler jobHandler) {
+      final io.camunda.zeebe.protocol.record.Record<?> jobRecord,
+      final JobRecordValue job,
+      final JobHandler jobHandler) {
     final Map<String, Object> variablesFromScope =
         variablesByScope.get(job.getElementInstanceKey());
     final Map<String, Object> scopedVariables =
         variablesFromScope == null ? Map.of() : variablesFromScope;
+    final long jobKey = jobRecord.getKey();
     final ActivatedJob activatedJob =
-        new EmbeddedActivatedJob(jobKey, job, jsonMapper, scopedVariables);
+        new EmbeddedActivatedJob(jobRecord, jsonMapper, scopedVariables);
     try {
       jobHandler.handle(client, activatedJob);
     } catch (Exception e) {
