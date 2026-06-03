@@ -9,6 +9,7 @@
         <zeebe:taskDefinition type="helloWorld" />
         <zeebe:ioMapping>
           <zeebe:input source="=name" target="name" />
+          <zeebe:output source="=greeting" target="greeting" />
         </zeebe:ioMapping>
       </bpmn:extensionElements>
       <bpmn:incoming>Flow_1</bpmn:incoming>
