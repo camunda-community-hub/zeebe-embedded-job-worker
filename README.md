@@ -64,7 +64,6 @@ The exporter supports two modes based on job type:
 2. Default mode for all other job types:
    - invokes a Camunda Java `JobHandler` (`DelayedCompletionJobHandler`)
    - completes the job with the configured `jobCompletionDelayMs`
-   - returns `jobWorkerResult = true`
 
 # Releasing new versions
 1. Create new release on GitHub. Do not follow GitHub's advice to prefix the version number with a `v` for both release name and tag name. The `v` will be added automatically where needed.
