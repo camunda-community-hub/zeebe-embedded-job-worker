@@ -167,6 +167,7 @@ final class EmbeddedActivatedJob implements ActivatedJob {
 
   @Override
   public Set<String> getTags() {
-    return job.getTags();
+    final Set<String> tags = job.getTags();
+    return tags == null ? Set.of() : tags;
   }
 }
