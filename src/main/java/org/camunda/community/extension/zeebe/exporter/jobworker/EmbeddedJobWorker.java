@@ -17,19 +17,13 @@ import io.camunda.zeebe.protocol.record.value.VariableRecordValue;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Logger;
 
 public class EmbeddedJobWorker implements Exporter {
   private static final String INPUT_VARIABLE_NAME = "name";
-  private static final String OUTPUT_VARIABLE_NAME = "greeting";
   private static final String DEFAULT_OUTPUT_VARIABLE_NAME = "jobWorkerResult";
-  private static final String GREETING_PREFIX = "Hello ";
-  private static final String GREETING_SUFFIX = "!";
-  private static final Set<String> HELLO_JOB_TYPES =
-      Set.of("say-hello", "hello-world", "say hello", "hello world");
   private static final String DEFAULT_GATEWAY_ADDRESS = "http://localhost:26500";
   private static final long DEFAULT_JOB_COMPLETION_DELAY_MS = 550L;
   private static final String MISSING_INPUT_VALUE_ERROR_MESSAGE =
@@ -132,29 +126,26 @@ public class EmbeddedJobWorker implements Exporter {
 
   private void completeCreatedJobUsingVariablesByScope(
       final JobRecordValue job, final long jobKey) {
-    if (!isHelloJobType(job.getType())) {
+    if (!completeHelloWorldJobIfApplicable(job, jobKey)) {
       completeDefaultCreatedJobWithDelay(job, jobKey);
-      return;
+    }
+  }
+
+  private boolean completeHelloWorldJobIfApplicable(final JobRecordValue job, final long jobKey) {
+    if (!"helloWorld".equals(job.getType())) {
+      return false;
     }
 
     final String inputVariable = variablesByScope.get(job.getElementInstanceKey());
     if (inputVariable == null) {
       failCreatedJobForMissingInputValue(jobKey, job.getElementInstanceKey());
-      return;
+      return true;
     }
 
-    final String greeting = GREETING_PREFIX + inputVariable + GREETING_SUFFIX;
+    final String greeting = "Hello " + inputVariable + "!";
     LOGGER.info(() -> "Greeting built by embedded worker: " + greeting);
-    final Map<String, Object> outputVariables = Map.of(OUTPUT_VARIABLE_NAME, greeting);
-    completeCreatedJob(job, jobKey, outputVariables, Duration.ZERO);
-  }
-
-  private boolean isHelloJobType(final String jobType) {
-    if (jobType == null) {
-      return false;
-    }
-
-    return HELLO_JOB_TYPES.contains(jobType.trim().toLowerCase());
+    completeCreatedJob(job, jobKey, Map.of("greeting", greeting), Duration.ZERO);
+    return true;
   }
 
   private void completeDefaultCreatedJobWithDelay(final JobRecordValue job, final long jobKey) {

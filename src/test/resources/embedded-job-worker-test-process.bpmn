@@ -6,7 +6,7 @@
     </bpmn:startEvent>
     <bpmn:serviceTask id="Activity_1" name="Complete By Embedded Worker">
       <bpmn:extensionElements>
-        <zeebe:taskDefinition type="say-hello" />
+        <zeebe:taskDefinition type="helloWorld" />
         <zeebe:ioMapping>
           <zeebe:input source="=name" target="name" />
         </zeebe:ioMapping>
