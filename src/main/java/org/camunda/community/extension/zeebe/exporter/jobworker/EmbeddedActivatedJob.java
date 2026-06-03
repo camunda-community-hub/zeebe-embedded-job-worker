@@ -23,7 +23,6 @@ final class EmbeddedActivatedJob implements ActivatedJob {
   private final JsonMapper jsonMapper;
   private final Map<String, String> scopedVariableValues;
   private final Map<String, Object> scopedVariables;
-  private volatile String variablesJson;
 
   EmbeddedActivatedJob(
       final io.camunda.zeebe.protocol.record.Record<?> jobRecord,
@@ -98,22 +97,18 @@ final class EmbeddedActivatedJob implements ActivatedJob {
 
   @Override
   public String getVariables() {
-    if (variablesJson == null) {
-      final StringBuilder variableBuilder = new StringBuilder("{");
-      final Iterator<Map.Entry<String, String>> iterator =
-          scopedVariableValues.entrySet().iterator();
-      while (iterator.hasNext()) {
-        final Map.Entry<String, String> variable = iterator.next();
-        variableBuilder.append(jsonMapper.toJson(variable.getKey())).append(':');
-        variableBuilder.append(variable.getValue());
-        if (iterator.hasNext()) {
-          variableBuilder.append(',');
-        }
+    final StringBuilder variableBuilder = new StringBuilder("{");
+    final Iterator<Map.Entry<String, String>> iterator = scopedVariableValues.entrySet().iterator();
+    while (iterator.hasNext()) {
+      final Map.Entry<String, String> variable = iterator.next();
+      variableBuilder.append(jsonMapper.toJson(variable.getKey())).append(':');
+      variableBuilder.append(variable.getValue());
+      if (iterator.hasNext()) {
+        variableBuilder.append(',');
       }
-      variableBuilder.append('}');
-      variablesJson = variableBuilder.toString();
     }
-    return variablesJson;
+    variableBuilder.append('}');
+    return variableBuilder.toString();
   }
 
   @Override
@@ -188,15 +183,12 @@ final class EmbeddedActivatedJob implements ActivatedJob {
       if (!(key instanceof String variableName)) {
         return null;
       }
+      final String value = valuesByName.get(variableName);
+      if (value == null) {
+        return null;
+      }
       return parsedValues.computeIfAbsent(
-          variableName,
-          ignored -> {
-            final String value = valuesByName.get(variableName);
-            if (value == null) {
-              return null;
-            }
-            return jsonMapper.fromJson(value, Object.class);
-          });
+          variableName, ignored -> jsonMapper.fromJson(value, Object.class));
     }
 
     @Override
