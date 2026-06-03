@@ -35,7 +35,8 @@ public class EmbeddedJobWorker implements Exporter {
   private Controller controller;
   private CamundaClient client;
   private final JsonMapper jsonMapper = new CamundaObjectMapper();
-  private final ConcurrentMap<Long, String> variablesByScope = new ConcurrentHashMap<>();
+  private final ConcurrentMap<Long, ConcurrentMap<String, Object>> variablesByScope =
+      new ConcurrentHashMap<>();
   private final JobHandler helloWorldJobHandler = new HelloWorldJobHandler();
   private JobWorkerExporterConfiguration configuration = new JobWorkerExporterConfiguration();
 
@@ -95,13 +96,12 @@ public class EmbeddedJobWorker implements Exporter {
       return;
     }
 
-    if (!HelloWorldJobHandler.INPUT_VARIABLE_NAME.equals(variableRecordValue.getName())) {
-      return;
-    }
-
     final long scopeKey = variableRecordValue.getScopeKey();
-    variablesByScope.put(
-        scopeKey, jsonMapper.fromJson(variableRecordValue.getValue(), String.class));
+    final Object scopedVariableValue =
+        jsonMapper.fromJson(variableRecordValue.getValue(), Object.class);
+    variablesByScope
+        .computeIfAbsent(scopeKey, ignored -> new ConcurrentHashMap<>())
+        .put(variableRecordValue.getName(), scopedVariableValue);
   }
 
   private void removeVariablesByScopeFromProcessInstanceEvent(
@@ -138,11 +138,9 @@ public class EmbeddedJobWorker implements Exporter {
 
   private void invokeHandlerForCreatedJob(
       final JobRecordValue job, final long jobKey, final JobHandler jobHandler) {
-    final String inputVariable = variablesByScope.get(job.getElementInstanceKey());
+    final Map<String, Object> variablesFromScope = variablesByScope.get(job.getElementInstanceKey());
     final Map<String, Object> scopedVariables =
-        inputVariable == null
-            ? Map.of()
-            : Map.of(HelloWorldJobHandler.INPUT_VARIABLE_NAME, inputVariable);
+        variablesFromScope == null ? Map.of() : Map.copyOf(variablesFromScope);
     final ActivatedJob activatedJob =
         new EmbeddedActivatedJob(jobKey, job, jsonMapper, scopedVariables);
     try {
