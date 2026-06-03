@@ -17,6 +17,7 @@ import io.camunda.zeebe.protocol.record.value.VariableRecordValue;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Logger;
