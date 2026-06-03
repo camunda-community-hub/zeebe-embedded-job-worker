@@ -127,26 +127,23 @@ public class EmbeddedJobWorker implements Exporter {
 
   private void completeCreatedJobUsingVariablesByScope(
       final JobRecordValue job, final long jobKey) {
-    if (!completeHelloWorldJobIfApplicable(job, jobKey)) {
-      completeDefaultCreatedJobWithDelay(job, jobKey);
+    final String jobType = job.getType() == null ? "" : job.getType();
+    switch (jobType) {
+      case "helloWorld" -> completeHelloWorldCreatedJob(job, jobKey);
+      default -> completeDefaultCreatedJobWithDelay(job, jobKey);
     }
   }
 
-  private boolean completeHelloWorldJobIfApplicable(final JobRecordValue job, final long jobKey) {
-    if (!"helloWorld".equals(job.getType())) {
-      return false;
-    }
-
+  private void completeHelloWorldCreatedJob(final JobRecordValue job, final long jobKey) {
     final String inputVariable = variablesByScope.get(job.getElementInstanceKey());
     if (inputVariable == null) {
       failCreatedJobForMissingInputValue(jobKey, job.getElementInstanceKey());
-      return true;
+      return;
     }
 
     final String greeting = "Hello " + inputVariable + "!";
     LOGGER.info(() -> "Greeting built by embedded worker: " + greeting);
     completeCreatedJob(job, jobKey, Map.of("greeting", greeting), Duration.ZERO);
-    return true;
   }
 
   private void completeDefaultCreatedJobWithDelay(final JobRecordValue job, final long jobKey) {
