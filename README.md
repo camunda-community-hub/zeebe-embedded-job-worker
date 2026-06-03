@@ -55,7 +55,7 @@ If `name` is missing when a job is created, the exporter fails that job with `re
 
 The exporter supports two modes based on job type:
 
-1. Hello mode for job types `say-hello`, `hello-world`, `say hello`, or `hello world`:
+1. Hello mode for job type `helloWorld`:
    - builds `Hello <name>!`
    - logs the greeting
    - completes the job immediately (no completion delay)
