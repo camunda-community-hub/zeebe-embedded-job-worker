@@ -25,7 +25,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Logger;
 
 public class EmbeddedJobWorker implements Exporter {
-  private static final String INPUT_VARIABLE_NAME = "name";
   private static final String DEFAULT_OUTPUT_VARIABLE_NAME = "jobWorkerResult";
   private static final String DEFAULT_GATEWAY_ADDRESS = "http://localhost:26500";
   private static final long DEFAULT_JOB_COMPLETION_DELAY_MS = 550L;
@@ -96,7 +95,7 @@ public class EmbeddedJobWorker implements Exporter {
       return;
     }
 
-    if (!INPUT_VARIABLE_NAME.equals(variableRecordValue.getName())) {
+    if (!HelloWorldJobHandler.INPUT_VARIABLE_NAME.equals(variableRecordValue.getName())) {
       return;
     }
 
@@ -141,13 +140,18 @@ public class EmbeddedJobWorker implements Exporter {
       final JobRecordValue job, final long jobKey, final JobHandler jobHandler) {
     final String inputVariable = variablesByScope.get(job.getElementInstanceKey());
     final Map<String, Object> scopedVariables =
-        inputVariable == null ? Map.of() : Map.of(INPUT_VARIABLE_NAME, inputVariable);
-    final ActivatedJob activatedJob = new EmbeddedActivatedJob(jobKey, job, jsonMapper, scopedVariables);
+        inputVariable == null
+            ? Map.of()
+            : Map.of(HelloWorldJobHandler.INPUT_VARIABLE_NAME, inputVariable);
+    final ActivatedJob activatedJob =
+        new EmbeddedActivatedJob(jobKey, job, jsonMapper, scopedVariables);
     try {
       jobHandler.handle(client, activatedJob);
     } catch (Exception e) {
-      LOGGER.warning(() -> "Job handler invocation failed for job " + jobKey + ": " + e.getMessage());
-      failCreatedJob(jobKey, job.getElementInstanceKey(), JOB_HANDLER_ERROR_MESSAGE_PREFIX + e.getMessage());
+      LOGGER.warning(
+          () -> "Job handler invocation failed for job " + jobKey + ": " + e.getMessage());
+      failCreatedJob(
+          jobKey, job.getElementInstanceKey(), JOB_HANDLER_ERROR_MESSAGE_PREFIX + e.getMessage());
     }
   }
 

@@ -21,12 +21,34 @@ final class HelloWorldJobHandler implements JobHandler {
           .newFailCommand(job)
           .retries(0)
           .errorMessage(MISSING_INPUT_VALUE_ERROR_MESSAGE)
-          .send();
+          .send()
+          .whenComplete(
+              (ignored, error) -> {
+                if (error != null) {
+                  LOGGER.warning(
+                      () ->
+                          "Fail command for helloWorld job " + job.getKey() + " failed: " + error);
+                }
+              });
       return;
     }
 
     final String greeting = "Hello " + inputVariable + "!";
     LOGGER.info(() -> "Greeting built by embedded worker: " + greeting);
-    jobClient.newCompleteCommand(job).variables(Map.of(OUTPUT_VARIABLE_NAME, greeting)).send();
+    jobClient
+        .newCompleteCommand(job)
+        .variables(Map.of(OUTPUT_VARIABLE_NAME, greeting))
+        .send()
+        .whenComplete(
+            (ignored, error) -> {
+              if (error != null) {
+                LOGGER.warning(
+                    () ->
+                        "Complete command for helloWorld job "
+                            + job.getKey()
+                            + " failed: "
+                            + error);
+              }
+            });
   }
 }
