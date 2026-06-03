@@ -24,7 +24,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Logger;
 
 public class EmbeddedJobWorker implements Exporter {
-  private static final String DEFAULT_OUTPUT_VARIABLE_NAME = "jobWorkerResult";
   private static final String DEFAULT_GATEWAY_ADDRESS = "http://localhost:26500";
   private static final long DEFAULT_JOB_COMPLETION_DELAY_MS = 550L;
   private static final String JOB_HANDLER_ERROR_MESSAGE_PREFIX =
@@ -70,10 +69,7 @@ public class EmbeddedJobWorker implements Exporter {
             .build();
     delayedCompletionJobHandler =
         new DelayedCompletionJobHandler(
-            controller,
-            configuration.getJobCompletionDelayMs(),
-            DEFAULT_OUTPUT_VARIABLE_NAME,
-            variablesByScope::remove);
+            controller, configuration.getJobCompletionDelayMs(), variablesByScope::remove);
   }
 
   @Override
