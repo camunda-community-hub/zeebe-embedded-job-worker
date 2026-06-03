@@ -17,7 +17,6 @@ import io.camunda.zeebe.protocol.record.intent.VariableIntent;
 import io.camunda.zeebe.protocol.record.value.JobRecordValue;
 import io.camunda.zeebe.protocol.record.value.VariableRecordValue;
 import java.net.URI;
-import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -38,6 +37,7 @@ public class EmbeddedJobWorker implements Exporter {
   private final ConcurrentMap<Long, ConcurrentMap<String, Object>> variablesByScope =
       new ConcurrentHashMap<>();
   private final JobHandler helloWorldJobHandler = new HelloWorldJobHandler();
+  private JobHandler delayedCompletionJobHandler;
   private JobWorkerExporterConfiguration configuration = new JobWorkerExporterConfiguration();
 
   @Override
@@ -68,6 +68,12 @@ public class EmbeddedJobWorker implements Exporter {
             .grpcAddress(URI.create(resolveGatewayAddress()))
             .preferRestOverGrpc(false)
             .build();
+    delayedCompletionJobHandler =
+        new DelayedCompletionJobHandler(
+            controller,
+            configuration.getJobCompletionDelayMs(),
+            DEFAULT_OUTPUT_VARIABLE_NAME,
+            variablesByScope::remove);
   }
 
   @Override
@@ -114,7 +120,7 @@ public class EmbeddedJobWorker implements Exporter {
 
   private void handleJobEvent(final JobIntent intent, final JobRecordValue job, final long jobKey) {
     if (intent == JobIntent.CREATED) {
-      completeCreatedJobUsingVariablesByScope(job, jobKey);
+      handleCreatedJobUsingRegisteredHandlers(job, jobKey);
       return;
     }
 
@@ -127,13 +133,15 @@ public class EmbeddedJobWorker implements Exporter {
     variablesByScope.remove(job.getElementInstanceKey());
   }
 
-  private void completeCreatedJobUsingVariablesByScope(
+  private void handleCreatedJobUsingRegisteredHandlers(
       final JobRecordValue job, final long jobKey) {
     final String jobType = job.getType() == null ? "" : job.getType();
-    switch (jobType) {
-      case "helloWorld" -> invokeHandlerForCreatedJob(job, jobKey, helloWorldJobHandler);
-      default -> completeDefaultCreatedJobWithDelay(job, jobKey);
-    }
+    final JobHandler jobHandler =
+        switch (jobType) {
+          case "helloWorld" -> helloWorldJobHandler;
+          default -> delayedCompletionJobHandler;
+        };
+    invokeHandlerForCreatedJob(job, jobKey, jobHandler);
   }
 
   private void invokeHandlerForCreatedJob(
@@ -152,32 +160,6 @@ public class EmbeddedJobWorker implements Exporter {
       failCreatedJob(
           jobKey, job.getElementInstanceKey(), JOB_HANDLER_ERROR_MESSAGE_PREFIX + e.getMessage());
     }
-  }
-
-  private void completeDefaultCreatedJobWithDelay(final JobRecordValue job, final long jobKey) {
-    final Map<String, Object> outputVariables = Map.of(DEFAULT_OUTPUT_VARIABLE_NAME, true);
-    completeCreatedJob(
-        job, jobKey, outputVariables, Duration.ofMillis(configuration.getJobCompletionDelayMs()));
-  }
-
-  private void completeCreatedJob(
-      final JobRecordValue job,
-      final long jobKey,
-      final Map<String, Object> outputVariables,
-      final Duration delay) {
-    controller.scheduleCancellableTask(
-        delay,
-        () ->
-            client
-                .newCompleteCommand(jobKey)
-                .variables(outputVariables)
-                .send()
-                .whenComplete(
-                    (ignored, error) -> {
-                      if (error == null) {
-                        variablesByScope.remove(job.getElementInstanceKey());
-                      }
-                    }));
   }
 
   private void failCreatedJob(

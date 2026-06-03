@@ -62,6 +62,7 @@ The exporter supports two modes based on job type:
    - completes the job immediately (no completion delay)
    - returns the greeting in variable `greeting`
 2. Default mode for all other job types:
+   - invokes a Camunda Java `JobHandler` (`DelayedCompletionJobHandler`)
    - completes the job with the configured `jobCompletionDelayMs`
    - returns `jobWorkerResult = true`
 
