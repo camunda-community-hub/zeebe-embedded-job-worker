@@ -138,9 +138,10 @@ public class EmbeddedJobWorker implements Exporter {
 
   private void invokeHandlerForCreatedJob(
       final JobRecordValue job, final long jobKey, final JobHandler jobHandler) {
-    final Map<String, Object> variablesFromScope = variablesByScope.get(job.getElementInstanceKey());
+    final Map<String, Object> variablesFromScope =
+        variablesByScope.get(job.getElementInstanceKey());
     final Map<String, Object> scopedVariables =
-        variablesFromScope == null ? Map.of() : Map.copyOf(variablesFromScope);
+        variablesFromScope == null ? Map.of() : variablesFromScope;
     final ActivatedJob activatedJob =
         new EmbeddedActivatedJob(jobKey, job, jsonMapper, scopedVariables);
     try {

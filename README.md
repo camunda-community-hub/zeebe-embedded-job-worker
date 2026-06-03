@@ -51,7 +51,7 @@ It may feel like extra effort to create local variables but it's actually a cont
 
 The exporter correlates all scoped variables by scope key. A service task input mapping can therefore be used to provide task-local worker input variables, and the cached scope is dropped after successful job completion, on job cancellation, or when the corresponding scope is completed or terminated.
 
-If `name` is missing when a job is created, the exporter fails that job with `retries = 0` and error message `Missing required scoped variable 'name'`.
+For job type `helloWorld`, if `name` is missing when a job is created, the exporter fails that job with `retries = 0` and error message `Missing required scoped variable 'name'`.
 
 The exporter supports two modes based on job type:
 
