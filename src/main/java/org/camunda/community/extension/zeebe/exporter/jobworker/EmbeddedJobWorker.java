@@ -92,14 +92,12 @@ public class EmbeddedJobWorker implements Exporter {
 
   private void updateVariablesByScopeFromVariableEvent(
       final VariableIntent intent, final VariableRecordValue variableRecordValue) {
-    if (intent != VariableIntent.CREATED && intent != VariableIntent.UPDATED) {
-      return;
+    if (intent == VariableIntent.CREATED || intent == VariableIntent.UPDATED) {
+      final long scopeKey = variableRecordValue.getScopeKey();
+      variablesByScope
+          .computeIfAbsent(scopeKey, ignored -> new ConcurrentHashMap<>())
+          .put(variableRecordValue.getName(), variableRecordValue.getValue());
     }
-
-    final long scopeKey = variableRecordValue.getScopeKey();
-    variablesByScope
-        .computeIfAbsent(scopeKey, ignored -> new ConcurrentHashMap<>())
-        .put(variableRecordValue.getName(), variableRecordValue.getValue());
   }
 
   private void removeVariablesByScopeFromProcessInstanceEvent(
