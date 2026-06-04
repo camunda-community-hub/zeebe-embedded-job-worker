@@ -33,7 +33,7 @@ public class EmbeddedJobWorker implements Exporter {
   private Controller controller;
   private CamundaClient client;
   private final JsonMapper jsonMapper = new CamundaObjectMapper();
-  private final ConcurrentMap<Long, ConcurrentMap<String, String>> variablesByScope =
+  private final ConcurrentMap<Long, Map<String, String>> variablesByScope =
       new ConcurrentHashMap<>();
   private final JobHandler helloWorldJobHandler = new HelloWorldJobHandler();
   private JobHandler delayedCompletionJobHandler;
@@ -129,8 +129,8 @@ public class EmbeddedJobWorker implements Exporter {
       final io.camunda.zeebe.protocol.record.Record<?> jobRecord,
       final JobRecordValue job,
       final JobHandler jobHandler) {
-    final var scope = variablesByScope.get(job.getElementInstanceKey());
-    final Map<String, String> scopedVariables = scope != null ? scope : Map.of();
+    final Map<String, String> scopedVariables =
+        variablesByScope.getOrDefault(job.getElementInstanceKey(), Map.of());
     final long jobKey = jobRecord.getKey();
     final ActivatedJob activatedJob =
         new EmbeddedActivatedJob(jobRecord, jsonMapper, scopedVariables);
