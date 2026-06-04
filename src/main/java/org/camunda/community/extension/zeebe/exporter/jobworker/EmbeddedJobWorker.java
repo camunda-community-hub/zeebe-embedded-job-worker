@@ -100,24 +100,13 @@ public class EmbeddedJobWorker implements Exporter {
     }
   }
 
-  private void removeVariablesByScopeFromProcessInstanceEvent(
-      final ProcessInstanceIntent intent, final long scopeKey) {
-    if (intent == ProcessInstanceIntent.ELEMENT_COMPLETED
-        || intent == ProcessInstanceIntent.ELEMENT_TERMINATED) {
-      variablesByScope.remove(scopeKey);
-    }
-  }
-
   private void handleJobEvent(
       final JobIntent intent, final io.camunda.zeebe.protocol.record.Record<?> jobRecord) {
     final JobRecordValue job = (JobRecordValue) jobRecord.getValue();
-    if (intent == JobIntent.CREATED) {
-      handleCreatedJobUsingRegisteredHandlers(jobRecord, job);
-      return;
-    }
-
-    if (intent == JobIntent.CANCELED || intent == JobIntent.COMPLETED) {
-      removeVariablesByScopeForFinishedJob(job);
+    switch (intent) {
+      case CREATED -> handleCreatedJobUsingRegisteredHandlers(jobRecord, job);
+      case CANCELED, COMPLETED -> removeVariablesByScopeForFinishedJob(job);
+      default -> {}
     }
   }
 
@@ -140,10 +129,8 @@ public class EmbeddedJobWorker implements Exporter {
       final io.camunda.zeebe.protocol.record.Record<?> jobRecord,
       final JobRecordValue job,
       final JobHandler jobHandler) {
-    final Map<String, String> variablesFromScope =
-        variablesByScope.get(job.getElementInstanceKey());
-    final Map<String, String> scopedVariables =
-        variablesFromScope == null ? Map.of() : variablesFromScope;
+    final var scope = variablesByScope.get(job.getElementInstanceKey());
+    final Map<String, String> scopedVariables = scope != null ? scope : Map.of();
     final long jobKey = jobRecord.getKey();
     final ActivatedJob activatedJob =
         new EmbeddedActivatedJob(jobRecord, jsonMapper, scopedVariables);
@@ -152,24 +139,23 @@ public class EmbeddedJobWorker implements Exporter {
     } catch (Exception e) {
       LOGGER.warning(
           () -> "Job handler invocation failed for job " + jobKey + ": " + e.getMessage());
-      failCreatedJob(
-          jobKey, job.getElementInstanceKey(), JOB_HANDLER_ERROR_MESSAGE_PREFIX + e.getMessage());
+      failCreatedJob(jobKey, JOB_HANDLER_ERROR_MESSAGE_PREFIX + e.getMessage());
     }
   }
 
-  private void failCreatedJob(
-      final long jobKey, final long elementInstanceKey, final String errorMessage) {
-    client
-        .newFailCommand(jobKey)
-        .retries(0)
-        .errorMessage(errorMessage)
-        .send()
-        .whenComplete(
-            (ignored, error) -> {
-              if (error == null) {
-                variablesByScope.remove(elementInstanceKey);
-              }
-            });
+  private void failCreatedJob(final long jobKey, final String errorMessage) {
+    client.newFailCommand(jobKey).retries(0).errorMessage(errorMessage).send();
+    // Note: variables are intentionally left in variablesByScope so that the handler can be
+    // re-invoked if retries are increased later (e.g. via Operate). This may cause a memory
+    // leak if incidents are never resolved, as variables will not be cleaned up.
+  }
+
+  private void removeVariablesByScopeFromProcessInstanceEvent(
+      final ProcessInstanceIntent intent, final long scopeKey) {
+    if (intent == ProcessInstanceIntent.ELEMENT_COMPLETED
+        || intent == ProcessInstanceIntent.ELEMENT_TERMINATED) {
+      variablesByScope.remove(scopeKey);
+    }
   }
 
   private String resolveGatewayAddress() {

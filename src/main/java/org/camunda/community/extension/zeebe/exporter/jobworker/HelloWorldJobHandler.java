@@ -13,20 +13,7 @@ final class HelloWorldJobHandler implements JobHandler {
   public void handle(final JobClient jobClient, final ActivatedJob job) {
     final Object name = job.getVariable("name");
     if (name == null) {
-      jobClient
-          .newFailCommand(job)
-          .retries(0)
-          .errorMessage("Missing required scoped variable 'name'")
-          .send()
-          .whenComplete(
-              (ignored, error) -> {
-                if (error != null) {
-                  LOGGER.warning(
-                      () ->
-                          "Fail command for helloWorld job " + job.getKey() + " failed: " + error);
-                }
-              });
-      return;
+      throw new IllegalStateException("Missing required scoped variable 'name'");
     }
 
     final String greeting = "Hello " + name + "!";
