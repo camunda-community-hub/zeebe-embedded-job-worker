@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/"
+             id="classify-item-definitions"
+             name="Classify Item"
+             namespace="http://camunda.org/schema/1.0/dmn">
+  <decision id="classify-item" name="Classify Item">
+    <decisionTable id="decisionTable_classifyItem" hitPolicy="UNIQUE">
+      <input id="input_score" label="Score">
+        <inputExpression id="inputExpression_score" typeRef="integer">
+          <text>score</text>
+        </inputExpression>
+      </input>
+      <output id="output_rating" label="Rating" name="rating" typeRef="string"/>
+      <rule id="rule_low">
+        <inputEntry id="inputEntry_low">
+          <text>&lt; 50</text>
+        </inputEntry>
+        <outputEntry id="outputEntry_low">
+          <text>"low"</text>
+        </outputEntry>
+      </rule>
+      <rule id="rule_medium">
+        <inputEntry id="inputEntry_medium">
+          <text>[50..80)</text>
+        </inputEntry>
+        <outputEntry id="outputEntry_medium">
+          <text>"medium"</text>
+        </outputEntry>
+      </rule>
+      <rule id="rule_high">
+        <inputEntry id="inputEntry_high">
+          <text>>= 80</text>
+        </inputEntry>
+        <outputEntry id="outputEntry_high">
+          <text>"high"</text>
+        </outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+</definitions>

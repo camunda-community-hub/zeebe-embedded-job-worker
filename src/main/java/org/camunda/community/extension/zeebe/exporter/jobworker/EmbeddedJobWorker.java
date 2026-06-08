@@ -37,6 +37,7 @@ public class EmbeddedJobWorker implements Exporter {
       new ConcurrentHashMap<>();
   private final JobHandler helloWorldJobHandler = new HelloWorldJobHandler();
   private JobHandler delayedCompletionJobHandler;
+  private JobHandler parallelMultiInstanceDecisionJobHandler;
   private JobWorkerExporterConfiguration configuration = new JobWorkerExporterConfiguration();
 
   @Override
@@ -69,6 +70,8 @@ public class EmbeddedJobWorker implements Exporter {
             .build();
     delayedCompletionJobHandler =
         new DelayedCompletionJobHandler(controller, configuration.getJobCompletionDelayMs());
+    parallelMultiInstanceDecisionJobHandler =
+        new ParallelMultiInstanceDecisionJobHandler(client, jsonMapper);
   }
 
   @Override
@@ -120,6 +123,8 @@ public class EmbeddedJobWorker implements Exporter {
     final JobHandler jobHandler =
         switch (jobType) {
           case "helloWorld" -> helloWorldJobHandler;
+          case ParallelMultiInstanceDecisionJobHandler
+              .JOB_TYPE -> parallelMultiInstanceDecisionJobHandler;
           default -> delayedCompletionJobHandler;
         };
     invokeHandlerForCreatedJob(jobRecord, job, jobHandler);
