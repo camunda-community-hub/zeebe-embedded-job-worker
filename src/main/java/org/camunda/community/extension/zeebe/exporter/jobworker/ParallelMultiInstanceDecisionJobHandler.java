@@ -100,9 +100,23 @@ final class ParallelMultiInstanceDecisionJobHandler implements JobHandler {
     CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
         .thenAccept(
             ignored -> {
+              final List<EvaluateDecisionResponse> responses =
+                  futures.stream().map(CompletableFuture::join).toList();
+
+              final long failedCount = responses.stream().filter(Objects::isNull).count();
+              if (failedCount > 0) {
+                LOGGER.warning(
+                    () ->
+                        failedCount
+                            + " of "
+                            + items.size()
+                            + " decision evaluations permanently failed and were excluded from"
+                            + " results for job "
+                            + job.getKey());
+              }
+
               final List<Object> results =
-                  futures.stream()
-                      .map(CompletableFuture::join)
+                  responses.stream()
                       .filter(Objects::nonNull)
                       .map(
                           response ->
@@ -145,7 +159,7 @@ final class ParallelMultiInstanceDecisionJobHandler implements JobHandler {
               jobClient
                   .newFailCommand(job)
                   .retries(job.getRetries() - 1)
-                  .errorMessage(ex.getMessage())
+                  .errorMessage(ex.getMessage() != null ? ex.getMessage() : ex.toString())
                   .send();
               return null;
             });
