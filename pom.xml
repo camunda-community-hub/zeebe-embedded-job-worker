@@ -26,31 +26,30 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <version.java>17</version.java>
-    <maven.version>3.0</maven.version>
-    <zeebe.version>8.9.0</zeebe.version>
-    <camunda.client.version>8.8.24</camunda.client.version>
-    <junit.version>5.10.2</junit.version>
-    <testcontainers.version>1.19.8</testcontainers.version>
+    <version.java>21</version.java>
+    <maven.version>3.1</maven.version>
+    <camunda.version>8.9.8</camunda.version>
+    <junit.version>6.0.3</junit.version>
+    <testcontainers.version>2.0.4</testcontainers.version>
   </properties>
 
   <dependencies>
     <dependency>
       <groupId>io.camunda</groupId>
       <artifactId>zeebe-exporter-api</artifactId>
-      <version>${zeebe.version}</version>
+      <version>${camunda.version}</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>io.camunda</groupId>
       <artifactId>zeebe-protocol</artifactId>
-      <version>${zeebe.version}</version>
+      <version>${camunda.version}</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>io.camunda</groupId>
       <artifactId>camunda-client-java</artifactId>
-      <version>${camunda.client.version}</version>
+      <version>${camunda.version}</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
@@ -61,14 +60,14 @@
     </dependency>
     <dependency>
       <groupId>org.testcontainers</groupId>
-      <artifactId>junit-jupiter</artifactId>
+      <artifactId>testcontainers</artifactId>
       <version>${testcontainers.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.testcontainers</groupId>
-      <artifactId>testcontainers</artifactId>
-      <version>${testcontainers.version}</version>
+      <groupId>io.camunda</groupId>
+      <artifactId>camunda-process-test-java</artifactId>
+      <version>${camunda.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -84,7 +83,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
-        <version>3.2.1</version>
+        <version>3.6.2</version>
         <configuration>
           <rules>
             <dependencyConvergence />
@@ -102,15 +101,15 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-javadoc-plugin</artifactId>
-        <version>3.4.1</version>
+        <version>3.11.2</version>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-failsafe-plugin</artifactId>
-        <version>3.2.5</version>
+        <version>3.5.5</version>
         <configuration>
           <systemPropertyVariables>
-            <zeebe.version>${zeebe.version}</zeebe.version>
+            <camunda.version>${camunda.version}</camunda.version>
           </systemPropertyVariables>
         </configuration>
         <executions>
@@ -121,6 +120,12 @@
             </goals>
           </execution>
         </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.5.6</version>
       </plugin>
 
       <!-- Google code format plugin -->
