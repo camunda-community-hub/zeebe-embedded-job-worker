@@ -82,11 +82,13 @@ public class EmbeddedJobWorker implements Exporter {
   @Override
   public void export(io.camunda.zeebe.protocol.record.Record<?> record) {
     switch (record.getValueType()) {
-      case VARIABLE -> updateVariablesByScopeFromVariableEvent(
-          (VariableIntent) record.getIntent(), (VariableRecordValue) record.getValue());
+      case VARIABLE ->
+          updateVariablesByScopeFromVariableEvent(
+              (VariableIntent) record.getIntent(), (VariableRecordValue) record.getValue());
       case JOB -> handleJobEvent((JobIntent) record.getIntent(), record);
-      case PROCESS_INSTANCE -> removeVariablesByScopeFromProcessInstanceEvent(
-          (ProcessInstanceIntent) record.getIntent(), record.getKey());
+      case PROCESS_INSTANCE ->
+          removeVariablesByScopeFromProcessInstanceEvent(
+              (ProcessInstanceIntent) record.getIntent(), record.getKey());
       default -> {}
     }
 
@@ -123,8 +125,8 @@ public class EmbeddedJobWorker implements Exporter {
     final JobHandler jobHandler =
         switch (jobType) {
           case "helloWorld" -> helloWorldJobHandler;
-          case ParallelMultiInstanceDecisionJobHandler
-              .JOB_TYPE -> parallelMultiInstanceDecisionJobHandler;
+          case ParallelMultiInstanceDecisionJobHandler.JOB_TYPE ->
+              parallelMultiInstanceDecisionJobHandler;
           default -> delayedCompletionJobHandler;
         };
     invokeHandlerForCreatedJob(jobRecord, job, jobHandler);
