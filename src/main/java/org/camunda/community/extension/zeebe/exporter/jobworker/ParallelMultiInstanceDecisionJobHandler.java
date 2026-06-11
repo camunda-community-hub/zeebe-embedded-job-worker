@@ -6,6 +6,7 @@ import io.camunda.client.api.response.ActivatedJob;
 import io.camunda.client.api.response.EvaluateDecisionResponse;
 import io.camunda.client.api.worker.JobClient;
 import io.camunda.client.api.worker.JobHandler;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -20,18 +21,14 @@ import java.util.logging.Logger;
  * <p>The decision ID is read from a custom job header named {@value #HEADER_DECISION_ID}, making
  * the handler reusable across different BPMN processes simply by changing that header value.
  *
- * <p>Expected job variables (mapped via BPMN IO mapping):
+ * <p>Two modes are supported, selected via the {@value #HEADER_NESTED} job header:
  *
  * <ul>
- *   <li>{@value #INPUT_VARIABLE} – a {@code List<Map<String, Object>>} where each entry is passed
- *       as the variable context for one decision evaluation
- * </ul>
- *
- * <p>Variables written on job completion:
- *
- * <ul>
- *   <li>{@value #OUTPUT_VARIABLE} – a {@code List<Object>} containing the parsed decision output
- *       for each successfully evaluated input (in the same order as the input list)
+ *   <li><b>Flat mode</b> (default, {@value #HEADER_NESTED}{@code =false}): {@value #INPUT_VARIABLE}
+ *       is a {@code List<Map<String, Object>>}; result is a {@code List<Object>}.
+ *   <li><b>Nested mode</b> ({@value #HEADER_NESTED}{@code =true}): {@value #INPUT_VARIABLE} is a
+ *       {@code List<List<Map<String, Object>>>}; each inner list is evaluated independently in
+ *       parallel and the result is a {@code List<List<Object>>} preserving the original grouping.
  * </ul>
  *
  * <p>Each decision evaluation is retried up to {@value #MAX_RETRY_ATTEMPTS} times on transient
@@ -40,8 +37,9 @@ import java.util.logging.Logger;
  */
 final class ParallelMultiInstanceDecisionJobHandler implements JobHandler {
 
-  static final String JOB_TYPE = "evaluateBatchDecisions";
+  static final String JOB_TYPE = "evaluateParallelMultiInstanceDecisions";
   static final String HEADER_DECISION_ID = "decisionId";
+  static final String HEADER_NESTED = "nested";
   static final String INPUT_VARIABLE = "items";
   static final String OUTPUT_VARIABLE = "decisionResults";
 
@@ -66,6 +64,18 @@ final class ParallelMultiInstanceDecisionJobHandler implements JobHandler {
           "Missing required job header '" + HEADER_DECISION_ID + "' on job " + job.getKey());
     }
 
+    final boolean nested =
+        Boolean.parseBoolean(job.getCustomHeaders().getOrDefault(HEADER_NESTED, "false"));
+
+    if (nested) {
+      handleNested(jobClient, job, decisionId);
+    } else {
+      handleFlat(jobClient, job, decisionId);
+    }
+  }
+
+  private void handleFlat(
+      final JobClient jobClient, final ActivatedJob job, final String decisionId) {
     @SuppressWarnings("unchecked")
     final List<Map<String, Object>> items =
         (List<Map<String, Object>>) job.getVariable(INPUT_VARIABLE);
@@ -92,37 +102,9 @@ final class ParallelMultiInstanceDecisionJobHandler implements JobHandler {
                 + decisionId
                 + "'");
 
-    final List<CompletableFuture<EvaluateDecisionResponse>> futures =
-        items.stream()
-            .map(item -> sendWithIsolatedRetry(decisionId, item, MAX_RETRY_ATTEMPTS))
-            .toList();
-
-    CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+    evaluateAllInParallel(decisionId, items, job.getKey())
         .thenAccept(
-            ignored -> {
-              final List<EvaluateDecisionResponse> responses =
-                  futures.stream().map(CompletableFuture::join).toList();
-
-              final long failedCount = responses.stream().filter(Objects::isNull).count();
-              if (failedCount > 0) {
-                LOGGER.warning(
-                    () ->
-                        failedCount
-                            + " of "
-                            + items.size()
-                            + " decision evaluations permanently failed and were excluded from"
-                            + " results for job "
-                            + job.getKey());
-              }
-
-              final List<Object> results =
-                  responses.stream()
-                      .filter(Objects::nonNull)
-                      .map(
-                          response ->
-                              jsonMapper.fromJson(response.getDecisionOutput(), Object.class))
-                      .toList();
-
+            results -> {
               LOGGER.info(
                   () ->
                       "Completed "
@@ -131,7 +113,6 @@ final class ParallelMultiInstanceDecisionJobHandler implements JobHandler {
                           + items.size()
                           + " decision evaluations for job "
                           + job.getKey());
-
               jobClient
                   .newCompleteCommand(job)
                   .variables(Map.of(OUTPUT_VARIABLE, results))
@@ -148,21 +129,148 @@ final class ParallelMultiInstanceDecisionJobHandler implements JobHandler {
                         }
                       });
             })
-        .exceptionally(
-            ex -> {
-              LOGGER.warning(
+        .exceptionally(ex -> failJob(jobClient, job, "flat", ex));
+  }
+
+  private void handleNested(
+      final JobClient jobClient, final ActivatedJob job, final String decisionId) {
+    @SuppressWarnings("unchecked")
+    final List<List<Map<String, Object>>> groups =
+        (List<List<Map<String, Object>>>) job.getVariable(INPUT_VARIABLE);
+
+    if (groups == null || groups.isEmpty()) {
+      LOGGER.warning(
+          () ->
+              "Job "
+                  + job.getKey()
+                  + " received with empty or null '"
+                  + INPUT_VARIABLE
+                  + "'. Completing with empty results.");
+      jobClient.newCompleteCommand(job).variables(Map.of(OUTPUT_VARIABLE, List.of())).send();
+      return;
+    }
+
+    // Record the size of each group so results can be re-sliced after the single allOf.
+    final List<Integer> groupSizes = groups.stream().map(List::size).toList();
+    final int totalItems = groupSizes.stream().mapToInt(Integer::intValue).sum();
+
+    LOGGER.info(
+        () ->
+            "Starting nested parallel evaluation of "
+                + groups.size()
+                + " group(s) / "
+                + totalItems
+                + " item(s) for job "
+                + job.getKey()
+                + " using decision '"
+                + decisionId
+                + "'");
+
+    // Flatten all items from all groups into one parallel batch so every evaluation
+    // is in-flight simultaneously across group boundaries.
+    final List<CompletableFuture<EvaluateDecisionResponse>> allFutures =
+        groups.stream()
+            .flatMap(List::stream)
+            .map(item -> sendWithIsolatedRetry(decisionId, item, MAX_RETRY_ATTEMPTS))
+            .toList();
+
+    CompletableFuture.allOf(allFutures.toArray(new CompletableFuture[0]))
+        .thenAccept(
+            ignored -> {
+              // Re-slice the flat result list back into per-group sublists.
+              final List<List<Object>> results = new ArrayList<>(groupSizes.size());
+              int offset = 0;
+              for (final int size : groupSizes) {
+                final List<Object> groupResults =
+                    allFutures.subList(offset, offset + size).stream()
+                        .map(CompletableFuture::join)
+                        .map(
+                            r ->
+                                r != null
+                                    ? jsonMapper.fromJson(r.getDecisionOutput(), Object.class)
+                                    : null)
+                        .toList();
+                results.add(groupResults);
+                offset += size;
+              }
+              LOGGER.info(
                   () ->
-                      "Fatal error during batch evaluation for job "
-                          + job.getKey()
-                          + ": "
-                          + ex.getMessage());
+                      "Completed nested evaluation of "
+                          + groups.size()
+                          + " group(s) for job "
+                          + job.getKey());
               jobClient
-                  .newFailCommand(job)
-                  .retries(job.getRetries() - 1)
-                  .errorMessage(ex.getMessage() != null ? ex.getMessage() : ex.toString())
-                  .send();
-              return null;
+                  .newCompleteCommand(job)
+                  .variables(Map.of(OUTPUT_VARIABLE, results))
+                  .send()
+                  .whenComplete(
+                      (v, ex) -> {
+                        if (ex != null) {
+                          LOGGER.warning(
+                              () ->
+                                  "Failed to complete job "
+                                      + job.getKey()
+                                      + ": "
+                                      + ex.getMessage());
+                        }
+                      });
+            })
+        .exceptionally(ex -> failJob(jobClient, job, "nested", ex));
+  }
+
+  /**
+   * Evaluates all items in parallel and returns a future that resolves to the ordered list of
+   * decision outputs. Items whose evaluations permanently fail are dropped silently.
+   */
+  private CompletableFuture<List<Object>> evaluateAllInParallel(
+      final String decisionId, final List<Map<String, Object>> items, final long jobKey) {
+    final List<CompletableFuture<EvaluateDecisionResponse>> futures =
+        items.stream()
+            .map(item -> sendWithIsolatedRetry(decisionId, item, MAX_RETRY_ATTEMPTS))
+            .toList();
+
+    return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+        .thenApply(
+            ignored -> {
+              final List<EvaluateDecisionResponse> responses =
+                  futures.stream().map(CompletableFuture::join).toList();
+              final long failedCount = responses.stream().filter(Objects::isNull).count();
+              if (failedCount > 0) {
+                LOGGER.warning(
+                    () ->
+                        failedCount
+                            + " of "
+                            + items.size()
+                            + " decision evaluations permanently failed and were excluded from"
+                            + " results for job "
+                            + jobKey);
+              }
+              return responses.stream()
+                  .map(
+                      r ->
+                          r != null
+                              ? jsonMapper.fromJson(r.getDecisionOutput(), Object.class)
+                              : null)
+                  .toList();
             });
+  }
+
+  private Void failJob(
+      final JobClient jobClient, final ActivatedJob job, final String mode, final Throwable ex) {
+    LOGGER.warning(
+        () ->
+            "Fatal error during "
+                + mode
+                + " evaluation for job "
+                + job.getKey()
+                + ": "
+                + ex.getMessage());
+    jobClient
+        .newFailCommand(job)
+        .retries(job.getRetries() - 1)
+        .errorMessage(ex.getMessage() != null ? ex.getMessage() : ex.toString())
+        .send();
+    return null;
   }
 
   /**

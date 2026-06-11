@@ -167,6 +167,11 @@ final class EmbeddedActivatedJob implements ActivatedJob {
     return job.getTags();
   }
 
+  @Override
+  public Long getRootProcessInstanceKey() {
+    return null;
+  }
+
   private static final class LazyParsedVariablesMap extends AbstractMap<String, Object> {
     private final Map<String, String> valuesByName;
     private final JsonMapper jsonMapper;

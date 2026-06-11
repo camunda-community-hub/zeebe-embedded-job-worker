@@ -8,7 +8,6 @@ import io.camunda.client.api.JsonMapper;
 import io.camunda.client.api.command.ClientStatusException;
 import io.camunda.client.api.response.ProcessInstanceResult;
 import io.camunda.client.impl.CamundaObjectMapper;
-import io.camunda.client.impl.basicauth.BasicAuthCredentialsProviderBuilder;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
@@ -29,7 +28,7 @@ class EmbeddedJobWorkerProcessIT {
   private static final String EXPORTER_JAR_PREFIX = "zeebe-embedded-job-worker-";
   private static final String PROCESS_ID = "embedded-job-worker-test-process";
   private static final String PROCESS_RESOURCE = "embedded-job-worker-test-process.bpmn";
-  private static final String DEFAULT_ZEEBE_VERSION = "8.9.0";
+  private static final String DEFAULT_CAMUNDA_VERSION = "8.9.8";
   private static final Duration GATEWAY_READY_TIMEOUT = Duration.ofSeconds(30);
   private static final long POLLING_INTERVAL_MS = 200;
   private static final JsonMapper JSON_MAPPER = new CamundaObjectMapper();
@@ -41,15 +40,26 @@ class EmbeddedJobWorkerProcessIT {
     final Path projectRoot = Path.of("").toAbsolutePath();
     final Path builtJar = findBuiltExporterJar(projectRoot.resolve("target"));
     final String containerJarPath = "/usr/local/zeebe/exporters/" + builtJar.getFileName();
-    final String zeebeVersion = System.getProperty("zeebe.version", DEFAULT_ZEEBE_VERSION);
+    final String camundaVersion = System.getProperty("camunda.version", DEFAULT_CAMUNDA_VERSION);
 
     try (final GenericContainer<?> zeebe =
-        new GenericContainer<>(DockerImageName.parse("camunda/zeebe:" + zeebeVersion))
+        new GenericContainer<>(DockerImageName.parse("camunda/camunda:" + camundaVersion))
             .withExposedPorts(26500)
             .withFileSystemBind(builtJar.toString(), containerJarPath)
             .withEnv("CAMUNDA_DATA_EXPORTERS_JOBWORKER_JARPATH", containerJarPath)
             .withEnv(
-                "CAMUNDA_DATA_EXPORTERS_JOBWORKER_CLASSNAME", EmbeddedJobWorker.class.getName())) {
+                "CAMUNDA_DATA_EXPORTERS_JOBWORKER_CLASSNAME", EmbeddedJobWorker.class.getName())
+            .withEnv("SPRING_PROFILES_ACTIVE", "broker,consolidated-auth,security")
+            .withEnv("CAMUNDA_SECURITY_AUTHENTICATION_UNPROTECTEDAPI", "true")
+            .withEnv("CAMUNDA_SECURITY_AUTHORIZATIONS_ENABLED", "false")
+            .withEnv("CAMUNDA_DATA_SECONDARYSTORAGE_TYPE", "rdbms")
+            .withEnv("CAMUNDA_DATABASE_TYPE", "rdbms")
+            .withEnv("CAMUNDA_DATABASE_URL", "jdbc:h2:mem:it;DB_CLOSE_DELAY=-1;MODE=PostgreSQL")
+            .withEnv("CAMUNDA_DATABASE_USERNAME", "sa")
+            .withEnv("CAMUNDA_DATABASE_PASSWORD", "")
+            .withEnv(
+                "ZEEBE_BROKER_EXPORTERS_RDBMS_CLASSNAME",
+                "io.camunda.exporter.rdbms.RdbmsExporter")) {
       zeebe.start();
 
       final URI gatewayAddress = URI.create("http://localhost:" + zeebe.getMappedPort(26500));
@@ -57,11 +67,6 @@ class EmbeddedJobWorkerProcessIT {
           CamundaClient.newClientBuilder()
               .grpcAddress(gatewayAddress)
               .preferRestOverGrpc(false)
-              .credentialsProvider(
-                  new BasicAuthCredentialsProviderBuilder()
-                      .username("demo")
-                      .password("demo")
-                      .build())
               .build()) {
         awaitGatewayAvailable(client, GATEWAY_READY_TIMEOUT);
 
@@ -119,7 +124,13 @@ class EmbeddedJobWorkerProcessIT {
         Assumptions.assumeTrue(
             !unsupportedSecurityConfiguration,
             "Skipping process execution test for secured gateway configuration: " + message);
-        throw e;
+        try {
+          Thread.sleep(POLLING_INTERVAL_MS);
+        } catch (InterruptedException interrupted) {
+          Thread.currentThread().interrupt();
+          throw new IllegalStateException(
+              "Interrupted while waiting for gateway availability", interrupted);
+        }
       } catch (CompletionException e) {
         try {
           Thread.sleep(POLLING_INTERVAL_MS);
