@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
+                  id="Definitions_parallelMultiInstanceDecisionNestedTest"
+                  targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:process id="parallel-multi-instance-decision-nested-test-process" isExecutable="true">
+    <bpmn:startEvent id="StartEvent_1">
+      <bpmn:outgoing>Flow_1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:businessRuleTask id="Activity_classifyGroups" name="Classify Groups">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="evaluateParallelMultiInstanceDecisions" />
+        <zeebe:taskHeaders>
+          <zeebe:header key="decisionId" value="classify-item" />
+          <zeebe:header key="nested" value="true" />
+        </zeebe:taskHeaders>
+        <zeebe:ioMapping>
+          <zeebe:input source="=groups" target="items" />
+          <zeebe:output source="=decisionResults" target="ratings" />
+        </zeebe:ioMapping>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_1</bpmn:incoming>
+      <bpmn:outgoing>Flow_2</bpmn:outgoing>
+    </bpmn:businessRuleTask>
+    <bpmn:endEvent id="EndEvent_1">
+      <bpmn:incoming>Flow_2</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="StartEvent_1" targetRef="Activity_classifyGroups" />
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="Activity_classifyGroups" targetRef="EndEvent_1" />
+  </bpmn:process>
+</bpmn:definitions>

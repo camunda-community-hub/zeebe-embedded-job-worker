@@ -9,6 +9,7 @@ import io.camunda.client.impl.CamundaObjectMapper;
 import io.camunda.process.test.api.CamundaProcessTest;
 import java.util.List;
 import java.util.Map;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 @CamundaProcessTest
@@ -16,26 +17,24 @@ class ParallelMultiInstanceDecisionJobHandlerTest {
 
   private CamundaClient client;
 
-  @Test
-  void shouldEvaluateDecisionsInParallelAndReturnRatings() {
+  @BeforeEach
+  void deployResources() {
     client
         .newDeployResourceCommand()
-        .addResourceFromClasspath("batch-decision-test-process.bpmn")
+        .addResourceFromClasspath("parallel-multi-instance-decision-test-process.bpmn")
+        .addResourceFromClasspath("parallel-multi-instance-decision-nested-test-process.bpmn")
         .addResourceFromClasspath("classify-item.dmn")
         .send()
         .join();
+  }
 
-    try (final JobWorker worker =
-        client
-            .newWorker()
-            .jobType(ParallelMultiInstanceDecisionJobHandler.JOB_TYPE)
-            .handler(new ParallelMultiInstanceDecisionJobHandler(client, new CamundaObjectMapper()))
-            .open()) {
-
+  @Test
+  void shouldEvaluateFlatItemsAndReturnRatings() {
+    try (final JobWorker worker = openWorker()) {
       final ProcessInstanceEvent processInstance =
           client
               .newCreateInstanceCommand()
-              .bpmnProcessId("batch-decision-test-process")
+              .bpmnProcessId("parallel-multi-instance-decision-test-process")
               .latestVersion()
               .variables(
                   Map.of(
@@ -48,5 +47,36 @@ class ParallelMultiInstanceDecisionJobHandlerTest {
           .isCompleted()
           .hasVariable("ratings", List.of("low", "medium", "high"));
     }
+  }
+
+  @Test
+  void shouldEvaluateNestedGroupsAndReturnGroupedRatings() {
+    try (final JobWorker worker = openWorker()) {
+      final ProcessInstanceEvent processInstance =
+          client
+              .newCreateInstanceCommand()
+              .bpmnProcessId("parallel-multi-instance-decision-nested-test-process")
+              .latestVersion()
+              .variables(
+                  Map.of(
+                      "groups",
+                      List.of(
+                          List.of(Map.of("score", 30), Map.of("score", 65)),
+                          List.of(Map.of("score", 90)))))
+              .send()
+              .join();
+
+      assertThat(processInstance)
+          .isCompleted()
+          .hasVariable("ratings", List.of(List.of("low", "medium"), List.of("high")));
+    }
+  }
+
+  private JobWorker openWorker() {
+    return client
+        .newWorker()
+        .jobType(ParallelMultiInstanceDecisionJobHandler.JOB_TYPE)
+        .handler(new ParallelMultiInstanceDecisionJobHandler(client, new CamundaObjectMapper()))
+        .open();
   }
 }

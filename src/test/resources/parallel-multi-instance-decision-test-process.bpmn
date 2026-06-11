@@ -1,24 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
                   xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
-                  id="Definitions_batchDecisionTest"
+                  id="Definitions_parallelMultiInstanceDecisionTest"
                   targetNamespace="http://bpmn.io/schema/bpmn">
-  <bpmn:process id="batch-decision-test-process" isExecutable="true">
+  <bpmn:process id="parallel-multi-instance-decision-test-process" isExecutable="true">
     <bpmn:startEvent id="StartEvent_1">
       <bpmn:outgoing>Flow_1</bpmn:outgoing>
     </bpmn:startEvent>
-    <!--
-      Business rule task handled by ParallelMultiInstanceDecisionJobHandler.
-      - The decision to evaluate is declared via the "decisionId" job header so
-        this handler can be reused for any decision simply by changing that value.
-      - Input mapping renames the process variable "scores" to the worker's
-        expected local variable "items", keeping the handler generic.
-      - Output mapping renames the worker result "decisionResults" back to the
-        process variable "ratings" so callers can pick any name they like.
-    -->
     <bpmn:businessRuleTask id="Activity_classifyItems" name="Classify Items">
       <bpmn:extensionElements>
-        <zeebe:taskDefinition type="evaluateBatchDecisions" />
+        <zeebe:taskDefinition type="evaluateParallelMultiInstanceDecisions" />
         <zeebe:taskHeaders>
           <zeebe:header key="decisionId" value="classify-item" />
         </zeebe:taskHeaders>
