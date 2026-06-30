@@ -22,6 +22,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.DockerClientFactory;
+import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.utility.DockerImageName;
 
@@ -43,6 +44,9 @@ class ParallelMultiInstanceDecisionProcessIT {
   private static final long POLLING_INTERVAL_MS = 200;
   private static final JsonMapper JSON_MAPPER = new CamundaObjectMapper();
 
+  // false positive: Eclipse can't prove fluent .withXxx() calls won't throw before
+  // try-with-resources assigns zeebe
+  @SuppressWarnings("resource")
   @Test
   void shouldEvaluateDecisionsInParallelAndReturnRatings() throws IOException {
     Assumptions.assumeTrue(DockerClientFactory.instance().isDockerAvailable());
@@ -55,7 +59,7 @@ class ParallelMultiInstanceDecisionProcessIT {
     try (final GenericContainer<?> zeebe =
         new GenericContainer<>(DockerImageName.parse("camunda/camunda:" + camundaVersion))
             .withExposedPorts(26500)
-            .withFileSystemBind(builtJar.toString(), containerJarPath)
+            .withFileSystemBind(builtJar.toString(), containerJarPath, BindMode.READ_ONLY)
             .withEnv("CAMUNDA_DATA_EXPORTERS_JOBWORKER_JARPATH", containerJarPath)
             .withEnv(
                 "CAMUNDA_DATA_EXPORTERS_JOBWORKER_CLASSNAME", EmbeddedJobWorker.class.getName())
@@ -81,52 +85,38 @@ class ParallelMultiInstanceDecisionProcessIT {
               .build()) {
         awaitGatewayAvailable(client, GATEWAY_READY_TIMEOUT);
 
-        try {
-          client
-              .newDeployResourceCommand()
-              .addResourceFromClasspath(BPMN_RESOURCE)
-              .addResourceFromClasspath(DMN_RESOURCE)
-              .send()
-              .join();
+        client
+            .newDeployResourceCommand()
+            .addResourceFromClasspath(BPMN_RESOURCE)
+            .addResourceFromClasspath(DMN_RESOURCE)
+            .send()
+            .join();
 
-          final List<Map<String, Object>> scores =
-              List.of(Map.of("score", 30), Map.of("score", 65), Map.of("score", 90));
+        final List<Map<String, Object>> scores =
+            List.of(Map.of("score", 30), Map.of("score", 65), Map.of("score", 90));
 
-          final ProcessInstanceResult result =
-              client
-                  .newCreateInstanceCommand()
-                  .bpmnProcessId(PROCESS_ID)
-                  .latestVersion()
-                  .variables(Map.of("scores", scores))
-                  .withResult()
-                  .send()
-                  .join();
+        final ProcessInstanceResult result =
+            client
+                .newCreateInstanceCommand()
+                .bpmnProcessId(PROCESS_ID)
+                .latestVersion()
+                .variables(Map.of("scores", scores))
+                .withResult()
+                .send()
+                .join();
 
-          assertNotNull(result);
-          final Map<String, Object> resultVariables =
-              JSON_MAPPER.fromJsonAsMap(result.getVariables());
+        assertNotNull(result);
+        final Map<String, Object> resultVariables =
+            JSON_MAPPER.fromJsonAsMap(result.getVariables());
 
-          @SuppressWarnings("unchecked")
-          final List<String> ratings = (List<String>) resultVariables.get("ratings");
+        @SuppressWarnings("unchecked")
+        final List<String> ratings = (List<String>) resultVariables.get("ratings");
 
-          assertNotNull(ratings, "'ratings' variable must be present in process result");
-          assertEquals(3, ratings.size(), "Expected one rating per input score");
-          assertEquals("low", ratings.get(0), "score=30 should be rated 'low'");
-          assertEquals("medium", ratings.get(1), "score=65 should be rated 'medium'");
-          assertEquals("high", ratings.get(2), "score=90 should be rated 'high'");
-
-        } catch (ClientStatusException e) {
-          final String message = e.getMessage();
-          // Skip on security mismatches or on the known gRPC re-entrancy deadlock that occurs when
-          // the embedded exporter calls evaluateDecision back into the same broker thread pool.
-          final boolean skipCondition =
-              message != null
-                  && (message.contains("FORBIDDEN")
-                      || message.contains("authentication")
-                      || message.contains("Time out between gateway and broker"));
-          Assumptions.assumeTrue(!skipCondition, "Skipping: " + message);
-          throw e;
-        }
+        assertNotNull(ratings, "'ratings' variable must be present in process result");
+        assertEquals(3, ratings.size(), "Expected one rating per input score");
+        assertEquals("low", ratings.get(0), "score=30 should be rated 'low'");
+        assertEquals("medium", ratings.get(1), "score=65 should be rated 'medium'");
+        assertEquals("high", ratings.get(2), "score=90 should be rated 'high'");
       }
     }
   }
@@ -137,24 +127,7 @@ class ParallelMultiInstanceDecisionProcessIT {
       try {
         client.newTopologyRequest().send().join();
         return;
-      } catch (ClientStatusException e) {
-        final String message = e.getMessage();
-        final boolean unsupportedSecurityConfiguration =
-            message != null
-                && (message.contains("Failed to authenticate")
-                    || message.contains("FORBIDDEN")
-                    || message.contains("authorization"));
-        Assumptions.assumeTrue(
-            !unsupportedSecurityConfiguration,
-            "Skipping process execution test for secured gateway configuration: " + message);
-        try {
-          Thread.sleep(POLLING_INTERVAL_MS);
-        } catch (InterruptedException interrupted) {
-          Thread.currentThread().interrupt();
-          throw new IllegalStateException(
-              "Interrupted while waiting for gateway availability", interrupted);
-        }
-      } catch (CompletionException e) {
+      } catch (ClientStatusException | CompletionException e) {
         try {
           Thread.sleep(POLLING_INTERVAL_MS);
         } catch (InterruptedException interrupted) {

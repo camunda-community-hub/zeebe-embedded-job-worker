@@ -44,6 +44,10 @@ class ParallelMultiInstanceDecisionJobHandlerTest {
               .join();
 
       assertThat(processInstance)
+          .hasNoActiveIncidents()
+          .hasCompletedElements("Activity_classifyItems")
+          .hasLocalVariable(
+              "Activity_classifyItems", "decisionResults", List.of("low", "medium", "high"))
           .isCompleted()
           .hasVariable("ratings", List.of("low", "medium", "high"));
     }
@@ -67,6 +71,12 @@ class ParallelMultiInstanceDecisionJobHandlerTest {
               .join();
 
       assertThat(processInstance)
+          .hasNoActiveIncidents()
+          .hasCompletedElements("Activity_classifyGroups")
+          .hasLocalVariable(
+              "Activity_classifyGroups",
+              "decisionResults",
+              List.of(List.of("low", "medium"), List.of("high")))
           .isCompleted()
           .hasVariable("ratings", List.of(List.of("low", "medium"), List.of("high")));
     }

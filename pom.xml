@@ -29,9 +29,21 @@
     <version.java>21</version.java>
     <maven.version>3.1</maven.version>
     <camunda.version>8.9.8</camunda.version>
-    <junit.version>6.0.3</junit.version>
+    <junit.version>6.1.0</junit.version>
     <testcontainers.version>2.0.4</testcontainers.version>
   </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.junit</groupId>
+        <artifactId>junit-bom</artifactId>
+        <version>${junit.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
 
   <dependencies>
     <dependency>
