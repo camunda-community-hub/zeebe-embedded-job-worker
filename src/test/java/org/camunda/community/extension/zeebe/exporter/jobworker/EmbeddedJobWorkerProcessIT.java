@@ -21,6 +21,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.DockerClientFactory;
+import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.utility.DockerImageName;
 
@@ -33,6 +34,9 @@ class EmbeddedJobWorkerProcessIT {
   private static final long POLLING_INTERVAL_MS = 200;
   private static final JsonMapper JSON_MAPPER = new CamundaObjectMapper();
 
+  // false positive: Eclipse can't prove fluent .withXxx() calls won't throw before
+  // try-with-resources assigns zeebe
+  @SuppressWarnings("resource")
   @Test
   void shouldCompleteServiceTaskAndReturnResultVariables() throws IOException {
     Assumptions.assumeTrue(DockerClientFactory.instance().isDockerAvailable());
@@ -45,7 +49,7 @@ class EmbeddedJobWorkerProcessIT {
     try (final GenericContainer<?> zeebe =
         new GenericContainer<>(DockerImageName.parse("camunda/camunda:" + camundaVersion))
             .withExposedPorts(26500)
-            .withFileSystemBind(builtJar.toString(), containerJarPath)
+            .withFileSystemBind(builtJar.toString(), containerJarPath, BindMode.READ_ONLY)
             .withEnv("CAMUNDA_DATA_EXPORTERS_JOBWORKER_JARPATH", containerJarPath)
             .withEnv(
                 "CAMUNDA_DATA_EXPORTERS_JOBWORKER_CLASSNAME", EmbeddedJobWorker.class.getName())
@@ -67,43 +71,27 @@ class EmbeddedJobWorkerProcessIT {
           CamundaClient.newClientBuilder()
               .grpcAddress(gatewayAddress)
               .preferRestOverGrpc(false)
+              .defaultRequestTimeout(Duration.ofMinutes(2))
               .build()) {
         awaitGatewayAvailable(client, GATEWAY_READY_TIMEOUT);
 
-        try {
-          client
-              .newDeployResourceCommand()
-              .addResourceFromClasspath(PROCESS_RESOURCE)
-              .send()
-              .join();
+        client.newDeployResourceCommand().addResourceFromClasspath(PROCESS_RESOURCE).send().join();
 
-          final ProcessInstanceResult result =
-              client
-                  .newCreateInstanceCommand()
-                  .bpmnProcessId(PROCESS_ID)
-                  .latestVersion()
-                  .variables(Map.of("name", "Falko"))
-                  .withResult()
-                  .send()
-                  .join();
+        final ProcessInstanceResult result =
+            client
+                .newCreateInstanceCommand()
+                .bpmnProcessId(PROCESS_ID)
+                .latestVersion()
+                .variables(Map.of("name", "Falko"))
+                .withResult()
+                .send()
+                .join();
 
-          assertNotNull(result);
-          final Map<String, Object> resultVariables =
-              JSON_MAPPER.fromJsonAsMap(result.getVariables());
-          assertEquals("Falko", resultVariables.get("name"));
-          assertEquals("Hello Falko!", resultVariables.get("greeting"));
-        } catch (ClientStatusException e) {
-          final String message = e.getMessage();
-          final boolean unsupportedSecurityConfiguration =
-              message != null
-                  && (message.contains("FORBIDDEN")
-                      || message.contains("authentication")
-                      || message.contains("Time out between gateway and broker"));
-          Assumptions.assumeTrue(
-              !unsupportedSecurityConfiguration,
-              "Skipping process execution test for secured gateway configuration: " + message);
-          throw e;
-        }
+        assertNotNull(result);
+        final Map<String, Object> resultVariables =
+            JSON_MAPPER.fromJsonAsMap(result.getVariables());
+        assertEquals("Falko", resultVariables.get("name"));
+        assertEquals("Hello Falko!", resultVariables.get("greeting"));
       }
     }
   }
@@ -114,24 +102,7 @@ class EmbeddedJobWorkerProcessIT {
       try {
         client.newTopologyRequest().send().join();
         return;
-      } catch (ClientStatusException e) {
-        final String message = e.getMessage();
-        final boolean unsupportedSecurityConfiguration =
-            message != null
-                && (message.contains("Failed to authenticate")
-                    || message.contains("FORBIDDEN")
-                    || message.contains("authorization"));
-        Assumptions.assumeTrue(
-            !unsupportedSecurityConfiguration,
-            "Skipping process execution test for secured gateway configuration: " + message);
-        try {
-          Thread.sleep(POLLING_INTERVAL_MS);
-        } catch (InterruptedException interrupted) {
-          Thread.currentThread().interrupt();
-          throw new IllegalStateException(
-              "Interrupted while waiting for gateway availability", interrupted);
-        }
-      } catch (CompletionException e) {
+      } catch (ClientStatusException | CompletionException e) {
         try {
           Thread.sleep(POLLING_INTERVAL_MS);
         } catch (InterruptedException interrupted) {

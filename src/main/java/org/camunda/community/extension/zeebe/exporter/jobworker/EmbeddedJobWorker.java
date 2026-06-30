@@ -19,6 +19,7 @@ import io.camunda.zeebe.protocol.record.value.VariableRecordValue;
 import java.net.URI;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Logger;
@@ -138,16 +139,23 @@ public class EmbeddedJobWorker implements Exporter {
       final JobHandler jobHandler) {
     final Map<String, String> scopedVariables =
         variablesByScope.getOrDefault(job.getElementInstanceKey(), Map.of());
-    final long jobKey = jobRecord.getKey();
+    // The Record passed to export() is a mutable flyweight that is only valid during the
+    // synchronous export() call. Deep-copy it before handing it to an asynchronous handler,
+    // otherwise the buffer is recycled and reads (e.g. getKey()) return stale/reset values.
+    final io.camunda.zeebe.protocol.record.Record<?> jobRecordCopy = jobRecord.copyOf();
+    final long jobKey = jobRecordCopy.getKey();
     final ActivatedJob activatedJob =
-        new EmbeddedActivatedJob(jobRecord, jsonMapper, scopedVariables);
-    try {
-      jobHandler.handle(client, activatedJob);
-    } catch (Exception e) {
-      LOGGER.warning(
-          () -> "Job handler invocation failed for job " + jobKey + ": " + e.getMessage());
-      failCreatedJob(jobKey, JOB_HANDLER_ERROR_MESSAGE_PREFIX + e.getMessage());
-    }
+        new EmbeddedActivatedJob(jobRecordCopy, jsonMapper, scopedVariables);
+    CompletableFuture.runAsync(
+        () -> {
+          try {
+            jobHandler.handle(client, activatedJob);
+          } catch (Exception e) {
+            LOGGER.warning(
+                () -> "Job handler invocation failed for job " + jobKey + ": " + e.getMessage());
+            failCreatedJob(jobKey, JOB_HANDLER_ERROR_MESSAGE_PREFIX + e.getMessage());
+          }
+        });
   }
 
   private void failCreatedJob(final long jobKey, final String errorMessage) {
